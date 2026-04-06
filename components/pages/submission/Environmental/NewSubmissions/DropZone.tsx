@@ -56,13 +56,17 @@ const DropZone = ({
 		disabled,
 		onDrop: useCallback(
 			(acceptedFiles: SubmissionFile[]) => {
-				// Accept files to corresponding array of files based on it's extension
-				acceptedFiles.forEach(validator(validationState, validationDispatch));
-
-				// Process sequencing files (i.e. tar.xz) and compute MD5
-				acceptedFiles
-					.filter((file) => getFileExtension(file.name) === acceptedFileExtensions.TAR_XZ)
-					.forEach(computeMd5);
+				// Compute md5 for tar.xz files and validate each files
+				Promise.all(
+					acceptedFiles.map((file) =>
+						getFileExtension(file.name) === acceptedFileExtensions.TAR_XZ
+							? computeMd5(file).then(validator(validationState, validationDispatch))
+							: Promise.resolve(validator(validationState, validationDispatch)(file)),
+					),
+				).finally(() => {
+					// Once all files have been processed, state is ready to submit
+					validationDispatch({ type: 'is ready' });
+				});
 			},
 			[validationDispatch, validationState],
 		),
