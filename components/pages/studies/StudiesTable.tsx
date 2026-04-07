@@ -105,6 +105,16 @@ const columnData = (
 	{
 		accessor: 'description',
 		Header: 'Description',
+		Cell: ({ value }: { value: string }) => (
+			<div
+				css={css`
+					white-space: normal;
+					overflow-wrap: break-word;
+				`}
+			>
+				{value}
+			</div>
+		),
 	},
 	{
 		accessor: (row) => {
