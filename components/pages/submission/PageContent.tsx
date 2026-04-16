@@ -43,6 +43,9 @@ const PageContent = (): ReactElement => {
 			} else if (userHasClinicalAccess && !userHasEnvironmentalAccess) {
 				// user has only clinical submission access
 				Router.push(getInternalLink({ path: INTERNAL_PATHS.CLINICAL_SUBMISSION }));
+			} else if (!userHasClinicalAccess && !userHasEnvironmentalAccess) {
+				// user doesn't have access to either submission type, redirect to User page
+				Router.push(getInternalLink({ path: INTERNAL_PATHS.USER }));
 			}
 		}
 	}, [userHasClinicalAccess, userHasEnvironmentalAccess]);
