@@ -23,16 +23,24 @@ import { md5 } from 'js-md5';
 
 import type { SubmissionFile } from './types';
 
-export const computeMd5 = (file: SubmissionFile) => {
-	const reader = new FileReader();
+/**
+ * Computes the MD5 hash of a given file.
+ * @param file - The original file for which to compute the MD5 hash.
+ * @returns A promise that resolves to the file object with an added `md5` property
+ * @throws Will reject the promise if there's an error reading the file.
+ */
+export const computeMd5 = (file: SubmissionFile): Promise<SubmissionFile> =>
+	new Promise((resolve, reject) => {
+		const reader = new FileReader();
 
-	reader.onabort = () => console.warn(`Reading aborted for file: ${file.name}`);
-	reader.onerror = () => console.error(`Error reading file: ${file.name}`);
-	reader.onload = () => {
-		const binaryData = reader.result as ArrayBuffer;
-		const calculatedMd5 = md5(binaryData);
-		file.md5 = calculatedMd5;
-	};
+		reader.onabort = () => reject(new Error(`Reading aborted for file: ${file.name}`));
+		reader.onerror = () => reject(new Error(`Error reading file: ${file.name}`));
+		reader.onload = () => {
+			const binaryData = reader.result as ArrayBuffer;
+			const calculatedMd5 = md5(binaryData);
+			file.md5 = calculatedMd5;
+			resolve(file);
+		};
 
-	reader.readAsArrayBuffer(file);
-};
+		reader.readAsArrayBuffer(file);
+	});

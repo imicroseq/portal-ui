@@ -21,10 +21,10 @@
 
 import { Dispatch } from 'react';
 
-import {
-	acceptedFileExtensions,
-	ValidationAction,
-	ValidationParameters,
+import { 
+	acceptedFileExtensions, 
+	ValidationAction, 
+	ValidationParameters, 
 	type SubmissionFile,
 } from './types';
 
@@ -38,7 +38,7 @@ const overwiteIfExists = (existingFiles: SubmissionFile[], file: SubmissionFile)
 	existingFiles.filter((old) => old.name !== file.name).concat(file);
 
 export const validationReducer = (
-	state: ValidationParameters,
+	state: ValidationParameters, 
 	action: ValidationAction,
 ): ValidationParameters => {
 	switch (action.type) {
@@ -47,7 +47,7 @@ export const validationReducer = (
 			return {
 				...state,
 				oneCsv,
-				readyToUpload: oneCsv.length === 1,
+				readyToUpload: false,
 			};
 		}
 
@@ -56,7 +56,7 @@ export const validationReducer = (
 			return {
 				...state,
 				oneCsv,
-				readyToUpload: oneCsv.length === 1,
+				readyToUpload: false,
 			};
 		}
 
@@ -65,7 +65,7 @@ export const validationReducer = (
 			return {
 				...state,
 				oneOrMoreTar,
-				readyToUpload: state.oneCsv.length === 1 && oneOrMoreTar.length >= 0,
+				readyToUpload: false,
 			};
 		}
 
@@ -76,7 +76,14 @@ export const validationReducer = (
 			return {
 				...state,
 				oneOrMoreTar,
-				readyToUpload: state.oneCsv.length === 1 && oneOrMoreTar.length >= 0,
+				readyToUpload: false,
+			};
+		}
+
+		case 'is ready': {
+			return {
+				...state,
+				readyToUpload: state.oneCsv.length === 1 && state.oneOrMoreTar.length >= 0,
 			};
 		}
 
@@ -95,15 +102,16 @@ export const getFileExtension = (file: SubmissionFile | string = ''): string => 
 	// get the compound extension (e.g., tar.xz) or a single part extension (e.g., csv)
 	return parsedFileName
 		.slice(
-			-(parsedFileName?.[parsedFileName.length - 1] ===
+			-(parsedFileName?.[parsedFileName.length - 1] === 
 			acceptedFileExtensions.TAR_XZ.split('.').pop()
-				? 2
+				? 2 
 				: 1),
 		)
 		.join('.');
 };
 
-export const minFiles = ({ oneCsv }: ValidationParameters): boolean => !!oneCsv;
+export const minFiles = ({ oneCsv, oneOrMoreTar }: ValidationParameters): boolean =>
+	oneCsv.length > 0 || oneOrMoreTar.length > 0;
 
 export const validator =
 	(state: ValidationParameters, dispatch: Dispatch<ValidationAction>) =>
