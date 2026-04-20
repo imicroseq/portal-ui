@@ -36,25 +36,17 @@ const PageContent = (): ReactElement => {
 	const { userHasClinicalAccess, userHasEnvironmentalAccess, user } = useAuthContext();
 
 	useEffect(() => {
-		// no user info, don't do anything yet.
-		if (!user) {
-			return;
+		if (user) {
+			if (userHasClinicalAccess && userHasEnvironmentalAccess) {
+				// stays in the dual submission dashboard
+			} else if (userHasClinicalAccess) {
+				Router.push(getInternalLink({ path: INTERNAL_PATHS.CLINICAL_SUBMISSION }));
+			} else if (userHasEnvironmentalAccess) {
+				Router.push(getInternalLink({ path: INTERNAL_PATHS.ENVIRONMENTAL_SUBMISSION }));
+			} else {
+				Router.push(getInternalLink({ path: INTERNAL_PATHS.USER }));
+			}
 		}
-
-		// user has access to both submission types, stay in the dual submission dashboard
-		if (userHasClinicalAccess && userHasEnvironmentalAccess) {
-			return;
-		}
-
-		// redirect based on access level
-		let redirectPath = INTERNAL_PATHS.USER.toString();
-		if (userHasEnvironmentalAccess) {
-			redirectPath = INTERNAL_PATHS.ENVIRONMENTAL_SUBMISSION;
-		} else if (userHasClinicalAccess) {
-			redirectPath = INTERNAL_PATHS.CLINICAL_SUBMISSION;
-		}
-
-		Router.push(getInternalLink({ path: redirectPath }));
 	}, [userHasClinicalAccess, userHasEnvironmentalAccess, user]);
 
 	return (
