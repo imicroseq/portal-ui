@@ -33,19 +33,21 @@ import PreviousEnvironmentalSubmissions from './Environmental/PreviousSubmission
 
 const PageContent = (): ReactElement => {
 	const theme = useTheme();
-	const { userHasClinicalAccess, userHasEnvironmentalAccess } = useAuthContext();
+	const { userHasClinicalAccess, userHasEnvironmentalAccess, user } = useAuthContext();
 
 	useEffect(() => {
-		if (userHasClinicalAccess !== undefined && userHasEnvironmentalAccess !== undefined) {
-			if (!userHasClinicalAccess && userHasEnvironmentalAccess) {
-				// user has only environmental submission access
-				Router.push(getInternalLink({ path: INTERNAL_PATHS.ENVIRONMENTAL_SUBMISSION }));
-			} else if (userHasClinicalAccess && !userHasEnvironmentalAccess) {
-				// user has only clinical submission access
+		if (user) {
+			if (userHasClinicalAccess && userHasEnvironmentalAccess) {
+				// stays in the dual submission dashboard
+			} else if (userHasClinicalAccess) {
 				Router.push(getInternalLink({ path: INTERNAL_PATHS.CLINICAL_SUBMISSION }));
+			} else if (userHasEnvironmentalAccess) {
+				Router.push(getInternalLink({ path: INTERNAL_PATHS.ENVIRONMENTAL_SUBMISSION }));
+			} else {
+				Router.push(getInternalLink({ path: INTERNAL_PATHS.USER }));
 			}
 		}
-	}, [userHasClinicalAccess, userHasEnvironmentalAccess]);
+	}, [userHasClinicalAccess, userHasEnvironmentalAccess, user]);
 
 	return (
 		<main
