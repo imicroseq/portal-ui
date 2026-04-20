@@ -63,7 +63,9 @@ const getTableConfigs = ({
 	components: {
 		Table: {
 			borderColor: theme.colors.grey_3,
+			defaultColumnWidth: 160,
 			padding: '0.4rem',
+
 			columnTypes: {
 				// list: {
 				// 	listStyle: 'roman',
