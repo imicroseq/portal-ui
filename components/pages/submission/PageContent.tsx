@@ -33,22 +33,29 @@ import PreviousEnvironmentalSubmissions from './Environmental/PreviousSubmission
 
 const PageContent = (): ReactElement => {
 	const theme = useTheme();
-	const { userHasClinicalAccess, userHasEnvironmentalAccess } = useAuthContext();
+	const { userHasClinicalAccess, userHasEnvironmentalAccess, user } = useAuthContext();
 
 	useEffect(() => {
-		if (userHasClinicalAccess !== undefined && userHasEnvironmentalAccess !== undefined) {
-			if (!userHasClinicalAccess && userHasEnvironmentalAccess) {
-				// user has only environmental submission access
-				Router.push(getInternalLink({ path: INTERNAL_PATHS.ENVIRONMENTAL_SUBMISSION }));
-			} else if (userHasClinicalAccess && !userHasEnvironmentalAccess) {
-				// user has only clinical submission access
-				Router.push(getInternalLink({ path: INTERNAL_PATHS.CLINICAL_SUBMISSION }));
-			} else if (!userHasClinicalAccess && !userHasEnvironmentalAccess) {
-				// user doesn't have access to either submission type, redirect to User page
-				Router.push(getInternalLink({ path: INTERNAL_PATHS.USER }));
-			}
+		// no user info, don't do anything yet.
+		if (!user) {
+			return;
 		}
-	}, [userHasClinicalAccess, userHasEnvironmentalAccess]);
+
+		// user has access to both submission types, stay in the dual submission dashboard
+		if (userHasClinicalAccess && userHasEnvironmentalAccess) {
+			return;
+		}
+
+		// redirect based on access level
+		let redirectPath = INTERNAL_PATHS.USER.toString();
+		if (userHasEnvironmentalAccess) {
+			redirectPath = INTERNAL_PATHS.ENVIRONMENTAL_SUBMISSION;
+		} else if (userHasClinicalAccess) {
+			redirectPath = INTERNAL_PATHS.CLINICAL_SUBMISSION;
+		}
+
+		Router.push(getInternalLink({ path: redirectPath }));
+	}, [userHasClinicalAccess, userHasEnvironmentalAccess, user]);
 
 	return (
 		<main
