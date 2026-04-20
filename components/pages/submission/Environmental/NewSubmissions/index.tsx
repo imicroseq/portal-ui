@@ -207,6 +207,7 @@ const NewSubmissions = (): ReactElement => {
 				type: `remove ${getFileExtension(name)}`,
 				file: name,
 			} as ValidationAction);
+			validationDispatch({ type: 'is ready' });
 		};
 
 	return (
@@ -475,7 +476,7 @@ const NewSubmissions = (): ReactElement => {
 								>
 									Submit Data
 								</Button>
-								{thereAreFiles && !readyToUpload && (
+								{thereAreFiles && validationState.oneCsv.length !== 1 && (
 									<p
 										css={css`
 											color: ${theme.colors.error_dark};
