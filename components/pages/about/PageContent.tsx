@@ -99,7 +99,6 @@ const PageContent = (): ReactElement => {
 					]}
 				>
 					<Impact />
-					<WhySequence />
 				</div>
 
 				{hasNews && (

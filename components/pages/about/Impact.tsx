@@ -41,27 +41,42 @@ const Impact = (): ReactElement => {
 					position: relative;
 				`}
 			>
-				Impact on Canadians
+				What iMicroseq provides
 			</h2>
-
-			<p>
-				Genomic-based tracking and analysis of microbes, including viruses, across Canada provides critical
-				information for:
-			</p>
-
 			<ul>
-				<li>Early detection of emerging pathogens and outbreaks.</li>
-				<li>Accurate microbial detection methods.</li>
-				<li>Understanding transmission dynamics of infectious diseases.</li>
-				<li>Improving detection, source attribution, surveillance, and control strategies.</li>
-				<li>Enhancing public health decisions through real-time data integration.</li>
 				<li>
-					Monitoring antimicrobial resistance trends and variant evolution, relevant for public health and
-					agriculture.
+					Infrastructure for sharing of water-based environmental monitoring bacterial and viral sequence
+					data, qPCR data and associated contextual data alongside select clinical case-based data
+					(VirusSeq/SARS-CoV-2).
+				</li>
+				<li>Canadian sovereign data storage.</li>
+				<li>
+					A transparent data governance framework that supports FAIR data sharing, with recognition of data
+					providers, and is striving for OCAP® compliance with community consultation.
+				</li>
+				<li>Tools being tailored to explore the data and serve the needs of the research community.</li>
+			</ul>
+			<h2
+				css={css`
+					color: ${theme.colors.primary};
+					font-size: 26px;
+					font-weight: normal;
+					position: relative;
+				`}
+			>
+				What iMicroSeq Enables
+			</h2>
+			<ul>
+				<li>Data discovery, uniting data in Canada into a standardized, searchable resource.</li>
+				<li>More wholistic analyses of data from diverse sources, breaking down data silos.</li>
+				<li>
+					Integration with, and extending, data from other resources (e.g. GenBank, ENA), via the use of
+					powerful data specifications and interchange formats.
 				</li>
 				<li>
-					Modeling microbial changes in the environment needed for environmental risk assessment and
-					predicting climate change impacts.
+					Supporting: Detection, source attribution, surveillance, risk assessment, and control strategies for
+					microbes and antimicrobial resistance - bolstering sectors as diverse as public health, agriculture,
+					aquaculture, and mining.
 				</li>
 			</ul>
 		</section>
