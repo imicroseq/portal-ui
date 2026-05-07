@@ -38,7 +38,7 @@ import {
 	type ExporterFileInterface,
 	type ExporterFunction,
 } from '@overture-stack/arranger-components/dist/Table/DownloadButton/types';
-import { toggleSQON } from '@overture-stack/arranger-components/dist/SQONViewer/utils';
+import { addInSQON, toggleSQON } from '@overture-stack/arranger-components/dist/SQONViewer/utils';
 import { UseThemeContextProps } from '@overture-stack/arranger-components/dist/ThemeContext/types';
 import type { RecursivePartial } from '@overture-stack/arranger-components/dist/utils/types.js';
 import type { SQON } from '@overture-stack/sqon-builder';
@@ -74,30 +74,33 @@ const wastewaterClickHandler =
 		filters = [],
 		setSQON,
 		sqon,
+		setIsWastewaterFilterActive,
+		isWastewaterFilterActive,
 	}: {
 		filters: string[];
 		setSQON: Dispatch<SetStateAction<SQONType>>;
 		sqon: SQONType;
+		setIsWastewaterFilterActive: Dispatch<SetStateAction<boolean>>;
+		isWastewaterFilterActive: boolean;
 	}) =>
 	() => {
-		filters.length &&
-			setSQON(
-				toggleSQON(
-					{
-						op: 'and',
-						content: [
-							{
-								op: 'in',
-								content: {
-									fieldName: 'data.environmental_material',
-									value: filters,
-								},
-							},
-						],
+		if (!filters.length) return undefined;
+
+		const filterSQON = {
+			op: 'and',
+			content: [
+				{
+					op: 'in',
+					content: {
+						fieldName: 'data.environmental_material',
+						value: filters,
 					},
-					sqon,
-				),
-			);
+				},
+			],
+		};
+
+		setSQON(isWastewaterFilterActive ? toggleSQON(filterSQON, sqon) : addInSQON(filterSQON, sqon));
+		setIsWastewaterFilterActive(!isWastewaterFilterActive);
 
 		return undefined; // because TypeScript
 	};
@@ -269,6 +272,7 @@ const RepoTable = (): ReactElement => {
 	const { sqon, setSQON } = useArrangerData({ callerName: 'Environmental-RepoTable' });
 	const [isLoadingManifest, setIsLoadingManifest] = useState(false);
 	const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
+	const [isWastewaterFilterActive, setIsWastewaterFilterActive] = useState(false);
 
 	const closeModal = () => {
 		setShowDownloadInfoModal(false);
@@ -362,6 +366,8 @@ const RepoTable = (): ReactElement => {
 		filters: wastewaterFilters,
 		setSQON,
 		sqon,
+		setIsWastewaterFilterActive,
+		isWastewaterFilterActive,
 	});
 
 	useArrangerTheme(
