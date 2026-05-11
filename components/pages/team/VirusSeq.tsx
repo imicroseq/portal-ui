@@ -52,4 +52,5 @@ const VirusSeqTeam = (): ReactElement => {
 		</section>
 	);
 };
+
 export default VirusSeqTeam;
