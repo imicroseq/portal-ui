@@ -380,6 +380,8 @@ const RepoTable = (): ReactElement => {
 				dotFieldName: 'data.environmental_material',
 				op: 'in',
 			});
+			// If Wastewater filters were enabled, then SQON field 'environmental_material' is changed,
+			// this disables the 'active' flag, so that filter button works as expected.
 			if (currentVal.length !== wastewaterFilters.length) {
 				setIsWastewaterFilterActive(false);
 			}
