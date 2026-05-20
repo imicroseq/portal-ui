@@ -38,12 +38,13 @@ import {
 	type ExporterFileInterface,
 	type ExporterFunction,
 } from '@overture-stack/arranger-components/dist/Table/DownloadButton/types';
-import { addInSQON, toggleSQON } from '@overture-stack/arranger-components/dist/SQONViewer/utils';
+import { addInSQON, toggleSQON, currentFieldValue } from '@overture-stack/arranger-components/dist/SQONViewer/utils';
 import { UseThemeContextProps } from '@overture-stack/arranger-components/dist/ThemeContext/types';
 import type { RecursivePartial } from '@overture-stack/arranger-components/dist/utils/types.js';
 import type { SQON } from '@overture-stack/sqon-builder';
 import {
 	ReactElement,
+	useEffect,
 	useState,
 	type Dispatch,
 	type ElementType,
@@ -63,7 +64,7 @@ import type { SubmissionManifest } from '#global/utils/fileManifest';
 import { excludeRecordsWithoutFiles, getManifestDataAsync, getMetadataBlobAsync } from './helper';
 
 const COLUMNS_DROPDOWN_TOOLTIP = 'Column selection does \\a not affect downloads.';
-const WASTEWATER_FILTER_TOOLTIP = 'Selects all the wastewater \\associated filters.';
+const WASTEWATER_FILTER_TOOLTIP = `Selects all the wastewater \\a associated filters.`;
 
 const downloadButtonCustomProps = { exportSelectedRowsField: '_id' };
 
@@ -99,7 +100,9 @@ const wastewaterClickHandler =
 			],
 		};
 
-		setSQON(isWastewaterFilterActive ? toggleSQON(filterSQON, sqon) : addInSQON(filterSQON, sqon));
+		const nextSQON = isWastewaterFilterActive ? toggleSQON(filterSQON, sqon) : addInSQON(filterSQON, sqon);
+
+		setSQON(nextSQON);
 		setIsWastewaterFilterActive(!isWastewaterFilterActive);
 
 		return undefined; // because TypeScript
@@ -369,6 +372,19 @@ const RepoTable = (): ReactElement => {
 		setIsWastewaterFilterActive,
 		isWastewaterFilterActive,
 	});
+
+	useEffect(() => {
+		if (isWastewaterFilterActive && sqon) {
+			const currentVal = currentFieldValue({
+				sqon,
+				dotFieldName: 'data.environmental_material',
+				op: 'in',
+			});
+			if (currentVal.length !== wastewaterFilters.length) {
+				setIsWastewaterFilterActive(false);
+			}
+		}
+	}, [sqon, isWastewaterFilterActive, wastewaterFilters]);
 
 	useArrangerTheme(
 		getTableConfigs({
