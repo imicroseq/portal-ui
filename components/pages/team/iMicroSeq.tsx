@@ -115,7 +115,7 @@ const IMicroSeqContent = (): ReactElement => (
 				<ul>
 					<li>Charlie Barclay</li>
 					<li>Bhavik Bhagat</li>
-					<li>Guillaume Bourque José</li>
+					<li>Guillaume Bourque</li>
 					<li>Héctor Gálvez López</li>
 					<li>Erin Gill</li>
 					<li>Justin Jia</li>
