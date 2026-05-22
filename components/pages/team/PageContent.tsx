@@ -22,11 +22,10 @@
 import { css, useTheme } from '@emotion/react';
 import { ReactElement } from 'react';
 
-import Cloud from './Cloud';
-import Funding from './Funding';
-import IMicroSeqContent from './iMicroSeq';
-import Partners from './Partners';
-import Portal from './Portal';
+import WhySequence from '#components/pages/about/WhySequence';
+
+import IMicroSeqTeam from './iMicroSeq';
+import VirusSeqTeam from './VirusSeq';
 
 const PageContent = (): ReactElement => {
 	const theme = useTheme();
@@ -60,7 +59,7 @@ const PageContent = (): ReactElement => {
 						margin: 0;
 					`}
 				>
-					About the Team
+					About iMicroSeq
 				</h1>
 
 				<p
@@ -72,11 +71,23 @@ const PageContent = (): ReactElement => {
 					A Made-in-Canada Data Solution
 				</p>
 
-				<IMicroSeqContent />
-				<Funding />
-				<Partners />
-				<Portal />
-				<Cloud />
+				<p>
+					iMicroSeq supports the collaboration and engagement of eDNA monitoring efforts across Canada, with
+					the goal of addressing data silos that exist in this space. One of the primary goals of iMicroSeq is
+					the development of the iMicroSeq Data Portal as a tool to enhance data sharing and enable
+					integrative analyses. The Canadian iMicroSeq Data Portal manages and facilitates data sharing of
+					Canadian water-based environmental monitoring nucleotide sequencing data, qPCR data, and contextual
+					data alongside clinical case-based data (currently SARS-CoV-2) among researchers, Canadian public
+					health laboratories, and other groups interested in One Health and accessing the data for research
+					and innovation purposes. We are committed to 1) providing data that adheres to FAIR principles, 2)
+					ensuring that data generators are recognized for their contributions, 3) transparent data governance
+					and 4) respecting Indigenous data sovereignty (including Principles of OCAP&reg;, Métis Principles).
+				</p>
+				<WhySequence />
+
+				{/* <IMicroSeqIntro /> */}
+				<IMicroSeqTeam />
+				<VirusSeqTeam />
 			</article>
 		</main>
 	);

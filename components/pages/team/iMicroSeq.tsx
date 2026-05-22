@@ -23,30 +23,34 @@ import { css } from '@emotion/react';
 import { ReactElement } from 'react';
 
 import StyledLink from '#components/Link';
-import OicrLogo from '#components/theme/icons/oicr';
-import OvertureLogoWithText from '#components/theme/icons/overture_logo_with_text';
 
 const IMicroSeqContent = (): ReactElement => (
-	<section>
+	<section
+		css={css`
+			margin: 5px 0 10px;
+		`}
+	>
+		<h2
+			css={(theme) => css`
+				color: ${theme.colors.primary};
+				font-size: 26px;
+				font-weight: normal;
+				position: relative;
+			`}
+		>
+			The iMicroSeq Data Portal Team
+		</h2>
+
 		<div
 			css={css`
 				display: flex;
 			`}
 		>
 			<p>
-				<span
-					css={css`
-						font-weight: bold;
-					`}
-				>
-					iMicroSeq Data Portal:{' '}
-				</span>
-				The Canadian iMicroSeq Data Portal manages and facilitates data sharing of microbial data among
-				researchers, Canadian public health laboratories, and other groups interested in One Health and
-				accessing the data for research and innovation purposes. Development of this portal is a national,
-				team-based effort, led by researchers at Simon Fraser University and the Ontario Institute for Cancer
-				Research, with the support of McGill University, and in partnership with Indigenous community
-				participants in the iMicroSeq Consortium. A full list of members can be found here:{' '}
+				Development of this portal is a national, team-based effort, led by researchers at Simon Fraser
+				University and the Ontario Institute for Cancer Research, with the support of McGill University, and in
+				partnership with Indigenous community participants in the iMicroSeq Consortium. A full list of members
+				can be found here:{' '}
 				<StyledLink
 					href="https://ednasurveillance.ca/projects/surveillance-program-projects/imicroseq/imicroseq-team/"
 					rel="noopener noreferrer"
@@ -54,43 +58,7 @@ const IMicroSeqContent = (): ReactElement => (
 				>
 					https://ednasurveillance.ca/projects/surveillance-program-projects/imicroseq/imicroseq-team/
 				</StyledLink>
-				.
 			</p>
-
-			<span
-				css={css`
-					width: 190px;
-					margin: 0px 0 0 35px;
-					padding: 25px 20px;
-					border-radius: 10px;
-					border: solid 1px #dfdfe1;
-				`}
-			>
-				<StyledLink
-					href="https://overture.bio/"
-					rel="noopener noreferrer"
-					target="_blank"
-				>
-					<OvertureLogoWithText
-						width={123}
-						style={css`
-							margin: -12px 0px 0px 4px;
-							object-fit: contain;
-						`}
-					/>
-				</StyledLink>
-				<StyledLink
-					href="https://oicr.on.ca"
-					rel="noopener noreferrer"
-					target="_blank"
-				>
-					<OicrLogo
-						style={css`
-							margin: 10px 0 0 10px;
-						`}
-					/>
-				</StyledLink>
-			</span>
 		</div>
 		<div
 			css={css`
@@ -119,10 +87,11 @@ const IMicroSeqContent = (): ReactElement => (
 					<li>Héctor Gálvez López</li>
 					<li>Erin Gill</li>
 					<li>Justin Jia</li>
+					<li>Alexis Li</li>
+					<li>Kali Pedersen</li>
 					<li>Justin Richardsson</li>
-					<li>Edmund Su</li>
 					<li>Leonardo Rivera</li>
-					<li>Dan DeMaria</li>
+					<li>Edmund Su</li>
 					<li>Nima Tehrani</li>
 					<li>Geoff Winsor</li>
 				</ul>
@@ -141,8 +110,8 @@ const IMicroSeqContent = (): ReactElement => (
 					target="_blank"
 				>
 					Genome Canada
-				</StyledLink>
-				, and Genome British Columbia, in partnership with the{' '}
+				</StyledLink>{' '}
+				and Genome British Columbia in partnership with the{' '}
 				<StyledLink
 					href="https://www.canada.ca"
 					rel="noopener noreferrer"

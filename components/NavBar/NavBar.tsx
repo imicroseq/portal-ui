@@ -200,7 +200,7 @@ const NavBar = (): ReactElement => {
 								<StyledListLink
 									className={cx({ active: router.asPath.startsWith(INTERNAL_PATHS.TEAM) })}
 								>
-									Meet the Team
+									About iMicroSeq
 								</StyledListLink>
 							</InternalLink>,
 							<InternalLink path={INTERNAL_PATHS.ACKNOWLEDGEMENTS}>
