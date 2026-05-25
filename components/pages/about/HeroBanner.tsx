@@ -22,9 +22,7 @@
 import { css, useTheme } from '@emotion/react';
 import { ReactElement } from 'react';
 
-import { InternalLink as Link, StyledLinkAsButton } from '#components/Link';
 import { MapleLeaf } from '#components/theme/icons';
-import { INTERNAL_PATHS } from '#global/utils/constants';
 
 import ReleaseData from './ReleaseData';
 
@@ -112,8 +110,8 @@ const HeroBanner = (): ReactElement => {
 				>
 					The iMicroSeq Data Portal is an inclusive, Canadian database of microbial (including viral)
 					sequences, and associated harmonized contextual metadata. This Data Portal integrates DNA and
-					RNA-associated data from clinical and environmental sources, including wastewater, to monitor and
-					understand the evolution and spread of microbes and viruses, and respond to threats, affecting
+					RNA-associated data from clinical and environmental sources, including water and other wastewater,
+					to support data discovery, more wholistic analyses, and improved response to threats affecting
 					public health, agriculture, aquaculture, and the environment.
 				</p>
 
