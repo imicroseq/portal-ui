@@ -84,6 +84,7 @@ const IMicroSeqContent = (): ReactElement => (
 					<li>Charlie Barclay</li>
 					<li>Bhavik Bhagat</li>
 					<li>Guillaume Bourque</li>
+					<li>Dan DeMaria</li>
 					<li>José Héctor Gálvez López</li>
 					<li>Erin Gill</li>
 					<li>Justin Jia</li>
@@ -92,7 +93,6 @@ const IMicroSeqContent = (): ReactElement => (
 					<li>Justin Richardsson</li>
 					<li>Leonardo Rivera</li>
 					<li>Edmund Su</li>
-					<li>Dan DeMaria</li>
 					<li>Nima Tehrani</li>
 					<li>Geoff Winsor</li>
 				</ul>
