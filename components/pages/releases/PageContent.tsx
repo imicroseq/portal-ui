@@ -19,24 +19,22 @@
  *
  */
 
-import { ReactElement } from 'react';
 import { css, useTheme } from '@emotion/react';
+import { ReactElement } from 'react';
 
-import defaultTheme from '@/components/theme';
-
-import ReleasesTable from './ReleasesTable';
 import Description from './Description';
 import Policy from './Policy';
+import ReleasesTable from './ReleasesTable';
 
 const PageContent = (): ReactElement => {
-	const theme: typeof defaultTheme = useTheme();
+	const theme = useTheme();
 	return (
 		<main
 			css={css`
 				align-items: center;
 				display: flex;
 				flex-direction: column;
-				padding-bottom: ${theme.dimensions.footer.height}px;
+				padding-bottom: 30px;
 				${theme.typography.baseFont};
 			`}
 		>

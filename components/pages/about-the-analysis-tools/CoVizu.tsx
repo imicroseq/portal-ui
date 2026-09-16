@@ -19,14 +19,13 @@
  *
  */
 
-import { ReactElement } from 'react';
 import { css, useTheme } from '@emotion/react';
+import { ReactElement } from 'react';
 
-import StyledLink from '@/components/Link';
-import defaultTheme from '@/components/theme';
+import StyledLink from '#components/Link';
 
 const Portal = (): ReactElement => {
-	const theme: typeof defaultTheme = useTheme();
+	const theme = useTheme();
 
 	return (
 		<section>
@@ -53,7 +52,7 @@ const Portal = (): ReactElement => {
 							css={css`
 								font-weight: bold;
 							`}
-							href="https://virusseq-dataportal.ca/visualization"
+							href="https://filogeneti.ca/covizu/index.html"
 							rel="noopener noreferrer"
 							target="_blank"
 						>
@@ -75,10 +74,9 @@ const Portal = (): ReactElement => {
 						>
 							open source
 						</StyledLink>{' '}
-						SARS-CoV-2 genome analysis and visualization system, is used to visualize Canadian
-						VirusSeq data colocalized with international GenBank data in a time-scaled phylogenetic
-						tree to highlight potential cases of importation from other countries or ongoing
-						community transmission.
+						SARS-CoV-2 genome analysis and visualization system, is used to visualize Canadian VirusSeq data
+						colocalized with international GenBank data in a time-scaled phylogenetic tree to highlight
+						potential cases of importation from other countries or ongoing community transmission.
 					</p>
 				</span>
 
@@ -92,20 +90,23 @@ const Portal = (): ReactElement => {
 					`}
 				>
 					<StyledLink
-						href="https://virusmvp.org/covid-mvp/"
+						href="https://filogeneti.ca/covizu/index.html"
 						rel="noopener noreferrer"
 						target="_blank"
 					>
-						<img alt="COVID-MVP logo" src="/images/covizu-logo.png" width="60" />
+						<img
+							alt="CoVizu logo"
+							src="/images/covizu-logo.png"
+							width="60"
+						/>
 					</StyledLink>
 				</span>
 			</div>
 
 			<p>
-				The web page provides two interactive visualizations of these data. On the left, it displays
-				a phylogenetic tree summarizing the evolutionary relationships among different SARS-CoV-2
-				lineages (groupings of viruses with similar genomes, useful for linking outbreaks in
-				different places;{' '}
+				The web page provides two interactive visualizations of these data. On the left, it displays a
+				phylogenetic tree summarizing the evolutionary relationships among different SARS-CoV-2 lineages
+				(groupings of viruses with similar genomes, useful for linking outbreaks in different places;{' '}
 				<StyledLink
 					href="https://www.nature.com/articles/s41564-020-0770-5"
 					rel="noopener noreferrer"
@@ -117,10 +118,10 @@ const Portal = (): ReactElement => {
 			</p>
 
 			<p>
-				You can navigate between different lineages by clicking on their respective boxes. Selecting
-				a lineage displays a "beadplot" visualization in the center of the page. Each horizontal
-				line represents one or more samples of SARS-CoV-2 that share the same genome sequence. Beads
-				along the line represent the dates that this variant was sampled.
+				You can navigate between different lineages by clicking on their respective boxes. Selecting a lineage
+				displays a "beadplot" visualization in the center of the page. Each horizontal line represents one or
+				more samples of SARS-CoV-2 that share the same genome sequence. Beads along the line represent the dates
+				that this variant was sampled.
 			</p>
 		</section>
 	);

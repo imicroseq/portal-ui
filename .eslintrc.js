@@ -24,9 +24,11 @@ module.exports = {
 		'prettier/prettier': [
 			'warn',
 			{
-				printWidth: 100,
+				printWidth: 120,
 				semi: true,
+				singleAttributePerLine: true,
 				singleQuote: true,
+				tabWidth: 4,
 				trailingComma: 'all',
 				useTabs: true,
 			},
@@ -61,7 +63,12 @@ module.exports = {
 		'import/resolver': {
 			'babel-module': { allowExistingDirectories: true },
 		},
-		'import/internal-regex': '^@/',
+		// `react-ga4` ships only an "exports" field, no "main" fallback, so
+		// eslint-import-resolver-babel-module (5.3.2, latest) can't resolve it statically.
+		// It resolves fine at build time (webpack) and type-check time (tsc); this only
+		// silences the resolver's own false "unresolved" error.
+		'import/core-modules': ['react-ga4'],
+		'import/internal-regex': '^#',
 		react: {
 			version: 'detect',
 		},

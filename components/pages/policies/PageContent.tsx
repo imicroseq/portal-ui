@@ -19,77 +19,151 @@
  *
  */
 
-import { ReactElement } from 'react';
 import { css, useTheme } from '@emotion/react';
+import { ReactElement } from 'react';
 
-import defaultTheme from '../../theme';
-import Guidelines from './Guidelines';
-import Privacy from './Privacy';
-import Usage from './Usage';
+import StyledLink from '#components/Link.tsx';
+
+import IMicroSeqPolicies from './imicroseq/index';
+import VirusSeqPolicies from './virusseq/index';
+
+const anchors = {
+	imicroseq: 'imicroseq-policies',
+	virusseq: 'virusseq-policies',
+};
 
 const PageContent = (): ReactElement => {
-  const theme: typeof defaultTheme = useTheme();
+	const theme = useTheme();
 
-  return (
-    <main
-      css={css`
-        align-items: center;
-        display: flex;
-        flex-direction: column;
-        padding-bottom: ${theme.dimensions.footer.height}px;
-      `}
-    >
-      <article
-        css={css`
-          box-sizing: border-box;
-          margin: 30px 0;
-          max-width: 870px;
-          padding: 40px;
-          width: 100%;
-          ${theme.shadow.default};
+	return (
+		<main
+			css={css`
+				align-items: center;
+				display: flex;
+				flex-direction: column;
+				padding-bottom: 30px;
+			`}
+		>
+			<article
+				css={css`
+					box-sizing: border-box;
+					margin: 30px 0;
+					max-width: 800px;
+					padding: 40px;
+					width: 100%;
+					${theme.shadow.default};
 
-          .bold {
-            font-weight: bold;
-          }
+					h1 {
+						color: ${theme.colors.primary};
+						font-size: 1.8rem;
+						font-weight: normal;
+						margin: 0;
+					}
 
-          h1 {
-            color: ${theme.colors.primary};
-            font-size: 26px;
-            font-weight: normal;
-            margin: 0;
-          }
+					h2 {
+						${theme.typography.subheading};
+						font-size: 1.3rem;
+					}
 
-          h2 {
-            ${theme.typography.subheading};
-          }
+					h3 {
+						${theme.typography.subheading2};
+						font-size: 1rem;
+					}
 
-          ol,
-          ul {
-            padding-left: 30px;
+					ol,
+					ul {
+						padding-left: 30px;
 
-            li {
-              &:not(:last-of-type) {
-                margin-bottom: 5px;
-              }
+						li {
+							&:not(:last-of-type) {
+								margin-bottom: 5px;
+							}
 
-              ol,
-              ul {
-                margin-top: 5px;
-              }
-            }
-          }
+							ol,
+							ul {
+								margin-top: 5px;
+							}
+						}
+					}
 
-          section:not(:first-of-type) {
-            margin-top: 40px;
-          }
-        `}
-      >
-        <Usage />
-        <Privacy />
-        <Guidelines />
-      </article>
-    </main>
-  );
+					section {
+						margin-top: 40px;
+					}
+				`}
+			>
+				<h1
+					css={css`
+						color: ${theme.colors.primary};
+						font-size: 26px;
+						font-weight: normal;
+						margin: 0;
+					`}
+				>
+					Website and Data Usage Policies
+				</h1>
+
+				<p
+					css={css`
+						font-style: italic;
+						margin-top: 10px;
+					`}
+				>
+					Updated on 2026/02/19, at 9:00:00
+				</p>
+
+				<nav>
+					<StyledLink
+						css={css`
+							font-weight: bold;
+						`}
+						href={`#${anchors.imicroseq}`}
+						rel="noopener noreferrer"
+					>
+						Policies for iMicroSeq environmental data
+					</StyledLink>
+
+					<br />
+
+					<StyledLink
+						css={css`
+							font-weight: bold;
+						`}
+						href={`#${anchors.virusseq}`}
+						rel="noopener noreferrer"
+					>
+						Policies for VirusSeq Data Portal / iMicroSeq clinical case data
+					</StyledLink>
+				</nav>
+
+				<section>
+					<h1
+						css={css`
+							font-size: 1.5rem !important;
+							scroll-margin-top: 65px;
+						`}
+						id={`${anchors.imicroseq}`}
+					>
+						Policies for iMicroSeq Data Portal environmental data
+					</h1>
+					<IMicroSeqPolicies />
+				</section>
+
+				<section>
+					<h1
+						css={css`
+							font-size: 1.5rem !important;
+							scroll-margin-top: 65px;
+						`}
+						id={`${anchors.virusseq}`}
+					>
+						Policies for VirusSeq Data Portal / iMicroSeq clinical case data
+					</h1>
+
+					<VirusSeqPolicies />
+				</section>
+			</article>
+		</main>
+	);
 };
 
 export default PageContent;

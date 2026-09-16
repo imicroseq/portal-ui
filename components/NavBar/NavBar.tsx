@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2024 The Ontario Institute for Cancer Research. All rights reserved
+ * Copyright (c) 2021 The Ontario Institute for Cancer Research. All rights reserved
  *
  *  This program and the accompanying materials are made available under the terms of
  *  the GNU Affero General Public License v3.0. You should have received a copy of the
@@ -24,16 +24,15 @@ import cx from 'classnames';
 import { useRouter } from 'next/router';
 import { createRef, ReactElement } from 'react';
 
-import useAuthContext from '../../global/hooks/useAuthContext';
-import useTrackingContext from '../../global/hooks/useTrackingContext';
-import { INTERNAL_PATHS, ROOT_PATH } from '../../global/utils/constants';
-import { InternalLink } from '../Link';
-import defaultTheme from '../theme';
-import { Avatar } from '../theme/icons';
+import { InternalLink } from '#components/Link';
+import { Avatar } from '#components/theme/icons';
+import useAuthContext from '#global/hooks/useAuthContext';
+import useTrackingContext from '#global/hooks/useTrackingContext';
+import { INTERNAL_PATHS, ROOT_PATH } from '#global/utils/constants';
 
 import CurrentUser from './CurrentUser';
 import Dropdown from './Dropdown';
-import { linkStyles, StyledLink, StyledListLink } from './styles';
+import { linkStyles, StyledNavBarLink, StyledListLink } from './styles';
 
 /**
  * Portal ref of navBar. There is only one navBar in entire pagelayout.
@@ -44,12 +43,12 @@ const NavBar = (): ReactElement => {
 	const { logout, token, userHasAccessToStudySvc } = useAuthContext();
 	const { logEvent } = useTrackingContext();
 	const router = useRouter();
-	const theme: typeof defaultTheme = useTheme();
+	const theme = useTheme();
 
 	const handleLogout = () => logout(logEvent);
 
 	return (
-		<div
+		<header
 			ref={navBarRef}
 			css={css`
 				display: flex;
@@ -61,7 +60,7 @@ const NavBar = (): ReactElement => {
 				position: sticky;
 				top: 0;
 				left: 0;
-				z-index: 1;
+				z-index: 20;
 				width: 100%;
 			`}
 		>
@@ -75,14 +74,28 @@ const NavBar = (): ReactElement => {
 				`}
 			>
 				<InternalLink path={ROOT_PATH}>
-					<a
-						css={css`
-							display: flex;
-							align-items: center;
-							text-decoration: none;
-						`}
-					>
-						<img src="/images/navbar-logo.png" alt="VirusSeq logo" width="182" />
+					<a>
+						<div
+							css={css`
+								align-items: center;
+								background-color: ${theme.colors.white};
+								display: flex;
+								height: 45px;
+								justify-content: center;
+								text-decoration: none;
+								transform: skew(-20deg);
+								width: 165px;
+							`}
+						>
+							<img
+								css={css`
+									transform: skew(20deg);
+								`}
+								src="/images/imicroseq-logo.png"
+								alt="iMicroSeq logo"
+								width="150"
+							/>
+						</div>
 					</a>
 				</InternalLink>
 			</div>
@@ -102,13 +115,31 @@ const NavBar = (): ReactElement => {
 						width: 100%;
 					`}
 				>
-					<InternalLink path={INTERNAL_PATHS.EXPLORER}>
-						<StyledLink
-							className={cx({ active: router.asPath.startsWith(INTERNAL_PATHS.EXPLORER) })}
-						>
-							Explore VirusSeq Data
-						</StyledLink>
-					</InternalLink>
+					<Dropdown
+						css={linkStyles}
+						data={[
+							<InternalLink path={INTERNAL_PATHS.CLINICAL_EXPLORATION}>
+								<StyledListLink
+									className={cx({
+										active: router.asPath.startsWith(INTERNAL_PATHS.CLINICAL_EXPLORATION),
+									})}
+								>
+									Clinical-VirusSeq
+								</StyledListLink>
+							</InternalLink>,
+							<InternalLink path={INTERNAL_PATHS.ENVIRONMENTAL_EXPLORATION}>
+								<StyledListLink
+									className={cx({
+										active: router.asPath.startsWith(INTERNAL_PATHS.ENVIRONMENTAL_EXPLORATION),
+									})}
+								>
+									Environmental-Wastewater
+								</StyledListLink>
+							</InternalLink>,
+						]}
+						label="Explore Data"
+						urls={[INTERNAL_PATHS.EXPLORER]}
+					/>
 
 					<Dropdown
 						css={linkStyles}
@@ -123,18 +154,25 @@ const NavBar = (): ReactElement => {
 								</StyledListLink>
 							</InternalLink>,
 							<StyledListLink
-								href="https://filogeneti.ca/covizu/index.html"
+								href="https://dashboard.imicroseq-dataportal.ca"
 								rel="noopener noreferrer"
 								target="_blank"
 							>
-								CoVizu
+								Visualize environmental/wastewater data
 							</StyledListLink>,
 							<StyledListLink
-								href="https://covidmvp.cidgoh.ca/"
+								href="https://virusmvp.org"
 								rel="noopener noreferrer"
 								target="_blank"
 							>
-								Covid-MVP
+								Virus-MVP
+							</StyledListLink>,
+							<StyledListLink
+								href="https://covarr-net.github.io/duotang/duotang.html"
+								rel="noopener noreferrer"
+								target="_blank"
+							>
+								CoVarrNet-Duotang
 							</StyledListLink>,
 							<StyledListLink
 								href="https://viral.ai/collections/virusseq/overview"
@@ -144,11 +182,11 @@ const NavBar = (): ReactElement => {
 								ViralAI
 							</StyledListLink>,
 							<StyledListLink
-								href="https://covarr-net.github.io/duotang/duotang.html"
+								href="https://filogeneti.ca/covizu/index.html"
 								rel="noopener noreferrer"
 								target="_blank"
 							>
-								CoVarrNet-Duotang
+								CoVizu
 							</StyledListLink>,
 						]}
 						label="Analysis Tools"
@@ -162,7 +200,7 @@ const NavBar = (): ReactElement => {
 								<StyledListLink
 									className={cx({ active: router.asPath.startsWith(INTERNAL_PATHS.TEAM) })}
 								>
-									Meet the Team
+									About iMicroSeq
 								</StyledListLink>
 							</InternalLink>,
 							<InternalLink path={INTERNAL_PATHS.ACKNOWLEDGEMENTS}>
@@ -180,11 +218,9 @@ const NavBar = (): ReactElement => {
 					/>
 
 					<InternalLink path={INTERNAL_PATHS.RELEASES}>
-						<StyledLink
-							className={cx({ active: router.asPath.startsWith(INTERNAL_PATHS.RELEASES) })}
-						>
+						<StyledNavBarLink className={cx({ active: router.asPath.startsWith(INTERNAL_PATHS.RELEASES) })}>
 							Data Releases
-						</StyledLink>
+						</StyledNavBarLink>
 					</InternalLink>
 				</div>
 
@@ -199,11 +235,11 @@ const NavBar = (): ReactElement => {
 						`}
 					>
 						<InternalLink path={INTERNAL_PATHS.SUBMISSION}>
-							<StyledLink
+							<StyledNavBarLink
 								className={cx({ active: router.asPath.startsWith(INTERNAL_PATHS.SUBMISSION) })}
 							>
 								Submission Dashboard
-							</StyledLink>
+							</StyledNavBarLink>
 						</InternalLink>
 
 						<Dropdown
@@ -242,7 +278,7 @@ const NavBar = (): ReactElement => {
 					</div>
 				)}
 			</div>
-		</div>
+		</header>
 	);
 };
 

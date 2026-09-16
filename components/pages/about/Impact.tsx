@@ -19,30 +19,17 @@
  *
  */
 
-import { ReactElement } from 'react';
 import { css, useTheme } from '@emotion/react';
-
-import { StyledLinkAsButton } from '../../Link';
-import defaultTheme from '../../theme';
+import { ReactElement } from 'react';
 
 const Impact = (): ReactElement => {
-	const theme: typeof defaultTheme = useTheme();
+	const theme = useTheme();
 	return (
 		<section
+			className="Impact"
 			css={css`
-				margin: 0 50px;
-
 				> * {
 					margin: 25px 0;
-				}
-
-				@media (min-width: 900px) {
-					max-width: calc(35% - 75px);
-					margin-right: 25px;
-				}
-
-				@media (min-width: 960px) {
-					max-width: calc(40% - 75px);
 				}
 			`}
 		>
@@ -54,21 +41,43 @@ const Impact = (): ReactElement => {
 					position: relative;
 				`}
 			>
-				Impact on Canadians
+				What iMicroseq provides
 			</h2>
-
-			<p>
-				Genomic-based tracking and analysis of the evolving traits of the SARS-CoV-2 virus across
-				Canada provides critical information for:
-			</p>
-
 			<ul>
-				<li>Public health and policy decisions</li>
-				<li>Testing and tracing strategies</li>
-				<li>Virus detection and surveillance methods</li>
-				<li>Vaccine development and effectiveness</li>
-				<li>Drug discovery and effectiveness of treatment</li>
-				<li>Understanding susceptibility, disease severity and clinical outcomes</li>
+				<li>
+					Infrastructure for sharing of water-based environmental monitoring bacterial and viral sequence
+					data, qPCR data and associated contextual data alongside select clinical case-based data
+					(VirusSeq/SARS-CoV-2).
+				</li>
+				<li>Canadian sovereign data storage.</li>
+				<li>
+					A transparent data governance framework that supports FAIR data sharing, with recognition of data
+					providers, and is striving for OCAP® compliance with community consultation.
+				</li>
+				<li>Tools being tailored to explore the data and serve the needs of the research community.</li>
+			</ul>
+			<h2
+				css={css`
+					color: ${theme.colors.primary};
+					font-size: 26px;
+					font-weight: normal;
+					position: relative;
+				`}
+			>
+				What iMicroSeq Enables
+			</h2>
+			<ul>
+				<li>Data discovery, uniting data in Canada into a standardized, searchable resource.</li>
+				<li>More wholistic analyses of data from diverse sources, breaking down data silos.</li>
+				<li>
+					Integration with, and extending, data from other resources (e.g. GenBank, ENA), via the use of
+					powerful data specifications and interchange formats.
+				</li>
+				<li>
+					Supporting: Detection, source attribution, surveillance, risk assessment, and control strategies for
+					microbes and antimicrobial resistance - bolstering sectors as diverse as public health, agriculture,
+					aquaculture, and mining.
+				</li>
 			</ul>
 		</section>
 	);

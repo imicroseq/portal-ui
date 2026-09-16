@@ -19,57 +19,59 @@
  *
  */
 
-import { ReactElement, ReactNode } from 'react';
 import { css } from '@emotion/react';
+import { ReactElement, ReactNode } from 'react';
 
-import NavBar from './NavBar';
+import ErrorNotification from './ErrorNotification';
 import Footer from './Footer';
 import PageHead from './Head';
-import ErrorNotification from './ErrorNotification';
+import NavBar from './NavBar';
+import SystemAlerts from './SystemAlerts';
 
-const PageLayout = ({
-  children,
-  subtitle,
-}: {
-  children: ReactNode;
-  subtitle?: string;
-}): ReactElement => {
-  return (
-    <>
-      <PageHead subtitle={subtitle}></PageHead>
-      <div
-        css={(theme) => css`
-          display: grid;
-          grid-template-rows: ${theme.dimensions.navbar.height}px 1fr ${theme.dimensions.footer
-              .height}px;
-          height: 100%;
-          ${theme.typography.regular}
-          color: ${theme.colors.black};
-        `}
-      >
-        <NavBar />
-        {children}
-        <Footer />
-      </div>
-    </>
-  );
+const PageLayout = ({ children, subtitle }: { children: ReactNode; subtitle?: string }): ReactElement => {
+	return (
+		<>
+			<PageHead subtitle={subtitle} />
+
+			<SystemAlerts />
+
+			<div
+				css={(theme) => css`
+					color: ${theme.colors.black};
+					display: grid;
+					${theme.typography.regular}
+					grid-template-rows: ${theme.dimensions.navbar.height}px 1fr;
+					min-height: 100%;
+				`}
+			>
+				<NavBar />
+
+				{children}
+
+				<Footer />
+			</div>
+		</>
+	);
 };
 
 export const ErrorPageLayout = ({
-  children,
-  subtitle,
-  errorTitle,
+	children,
+	subtitle,
+	errorTitle,
 }: {
-  children: ReactNode;
-  subtitle: string;
-  errorTitle: string;
+	children: ReactNode;
+	subtitle: string;
+	errorTitle: string;
 }): ReactElement => {
-  return (
-    <PageLayout subtitle={subtitle}>
-      <ErrorNotification size="lg" title={errorTitle}>
-        {children}
-      </ErrorNotification>
-    </PageLayout>
-  );
+	return (
+		<PageLayout subtitle={subtitle}>
+			<ErrorNotification
+				size="lg"
+				title={errorTitle}
+			>
+				{children}
+			</ErrorNotification>
+		</PageLayout>
+	);
 };
 export default PageLayout;

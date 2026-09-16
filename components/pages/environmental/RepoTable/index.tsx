@@ -1,0 +1,442 @@
+/*
+ *
+ * Copyright (c) 2021 The Ontario Institute for Cancer Research. All rights reserved
+ *
+ *  This program and the accompanying materials are made available under the terms of
+ *  the GNU Affero General Public License v3.0. You should have received a copy of the
+ *  GNU Affero General Public License along with this program.
+ *   If not, see <http://www.gnu.org/licenses/>.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+ *  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ *  OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
+ *  SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+ *  TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ *  OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ *  IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
+import { css, useTheme } from '@emotion/react';
+import {
+	ColumnsSelectButton,
+	DownloadButton,
+	Pagination,
+	Table,
+	TableContextProvider,
+	Toolbar,
+	useArrangerData,
+	useArrangerTheme,
+	type SQONType,
+} from '@overture-stack/arranger-components';
+import ArrangerToolbarButton from '@overture-stack/arranger-components/dist/Button/index.js';
+import {
+	CustomColumnMappingInterface,
+	CustomExporterInput,
+	type ExporterFileInterface,
+	type ExporterFunction,
+} from '@overture-stack/arranger-components/dist/Table/DownloadButton/types';
+import { addInSQON, toggleSQON, currentFieldValue } from '@overture-stack/arranger-components/dist/SQONViewer/utils';
+import { UseThemeContextProps } from '@overture-stack/arranger-components/dist/ThemeContext/types';
+import type { RecursivePartial } from '@overture-stack/arranger-components/dist/utils/types.js';
+import type { SqonNode } from '@overture-stack/sqon';
+import {
+	ReactElement,
+	useEffect,
+	useState,
+	type Dispatch,
+	type ElementType,
+	type MouseEventHandler,
+	type SetStateAction,
+} from 'react';
+import urlJoin from 'url-join';
+
+import StyledLink from '#components/Link';
+import DownloadModal from '#components/pages/environmental/DownloadModal';
+import { ThemeInterface } from '#components/theme';
+import { Download } from '#components/theme/icons';
+import validateStringAsUrl from '#components/utils/urlValidation';
+import { getConfig } from '#global/config';
+import useTrackingContext from '#global/hooks/useTrackingContext';
+import { countActiveFilters, trackFileDownload } from '#global/hooks/useTrackingContext/events';
+import type { SubmissionManifest } from '#global/utils/fileManifest';
+import { createTrackedMetadataOnlyExporter } from '#global/utils/arrangerExport';
+
+import { excludeRecordsWithoutFiles, getManifestDataAsync, getMetadataBlobAsync } from './helper';
+
+const COLUMNS_DROPDOWN_TOOLTIP = 'Column selection does \\a not affect downloads.';
+const WASTEWATER_FILTER_TOOLTIP = `Selects all the wastewater \\a associated filters.`;
+
+const downloadButtonCustomProps = { exportSelectedRowsField: '_id' };
+
+type WastewaterClickHandler = () => MouseEventHandler | undefined;
+
+const wastewaterClickHandler =
+	({
+		filters = [],
+		setSQON,
+		sqon,
+		setIsWastewaterFilterActive,
+		isWastewaterFilterActive,
+	}: {
+		filters: string[];
+		setSQON: Dispatch<SetStateAction<SQONType>>;
+		sqon: SQONType;
+		setIsWastewaterFilterActive: Dispatch<SetStateAction<boolean>>;
+		isWastewaterFilterActive: boolean;
+	}) =>
+	() => {
+		if (!filters.length) return undefined;
+
+		const filterSQON = {
+			op: 'and',
+			content: [
+				{
+					op: 'in',
+					content: {
+						fieldName: 'data.environmental_material',
+						value: filters,
+					},
+				},
+			],
+		};
+
+		const nextSQON = isWastewaterFilterActive ? toggleSQON(filterSQON, sqon) : addInSQON(filterSQON, sqon);
+
+		setSQON(nextSQON);
+		setIsWastewaterFilterActive(!isWastewaterFilterActive);
+
+		return undefined; // because TypeScript
+	};
+
+const WastewaterFilter = (handleClickForWastewater: WastewaterClickHandler, theme: Record<string, string>) => () => {
+	return (
+		<ArrangerToolbarButton
+			css={css`
+				margin-right: 2rem;
+			`}
+			onClick={handleClickForWastewater}
+			theme={theme}
+		>
+			Wastewater Filter
+		</ArrangerToolbarButton>
+	);
+};
+
+const getTableConfigs = ({
+	apiHost = '',
+	customExporters,
+	handleClickForWastewater,
+	theme,
+}: {
+	apiHost?: string;
+	customExporters?: CustomExporterInput;
+	handleClickForWastewater: WastewaterClickHandler;
+	theme: ThemeInterface;
+}): UseThemeContextProps => ({
+	callerName: 'RepoTable',
+	components: {
+		Table: {
+			borderColor: theme.colors.grey_3,
+			defaultColumnWidth: 160,
+			padding: '0.4rem',
+			columnTypes: {
+				'data.sra_url': {
+					cellValue: ({ value = '' }) => {
+						const valueIsURL = validateStringAsUrl(value);
+						// TODO: may want to validate the URL is an SRA one, if we have a pattern
+						return valueIsURL ? (
+							<StyledLink
+								href={value}
+								rel="noopener noreferrer"
+								target="_blank"
+							>
+								{value}
+							</StyledLink>
+						) : (
+							value
+						);
+					},
+				},
+			},
+
+			// Components
+			Cell: {
+				hoverBackground: theme.colors.secondary_1,
+				verticalBorderColor: theme.colors.grey_3,
+			},
+			CountDisplay: {
+				fontColor: 'inherit',
+			},
+			DownloadButton: {
+				background: theme.colors.success_dark,
+				borderColor: theme.colors.primary,
+				customExporters,
+				downloadUrl: urlJoin(apiHost, 'download'),
+				fontColor: theme.colors.white,
+				hoverBackground: theme.colors.accent3_dark,
+				...downloadButtonCustomProps,
+				label: () => (
+					<>
+						<Download
+							fill={theme.colors.white}
+							style={css`
+								margin-right: 0.2rem;
+							`}
+						/>{' '}
+						Download Dataset
+					</>
+				),
+			},
+			ColumnSelectButton: {
+				background: theme.colors.white,
+				borderColor: theme.colors.grey_5,
+				fontColor: theme.colors.primary,
+				hoverBackground: theme.colors.secondary_light,
+				tooltipAlign: 'top left',
+				tooltipText: COLUMNS_DROPDOWN_TOOLTIP,
+			},
+			DropDown: {
+				arrowTransition: 'all 0s',
+				css: css`
+					${theme.typography.subheading2}
+					line-height: 1.3rem;
+				`,
+				disabledBackground: theme.colors.grey_3,
+				disabledFontColor: theme.colors.grey_6,
+				ListWrapper: {
+					background: theme.colors.white,
+					css: css`
+						${theme.shadow.default}
+					`,
+					fontColor: theme.colors.black,
+					fontSize: '0.7rem',
+					hoverBackground: theme.colors.secondary_light,
+				},
+			},
+			HeaderRow: {
+				fontColor: theme.colors.accent_dark,
+				fontSize: '0.8rem',
+				verticalBorderColor: theme.colors.grey_3,
+			},
+			Row: {
+				css: css`
+					&:nth-of-type(odd) {
+						background: ${theme.colors.grey_1};
+					}
+				`,
+				hoverBackground: theme.colors.grey_3,
+				selectedBackground: theme.colors.secondary_1,
+			},
+			MaxRowsSelector: {
+				fontColor: 'inherit',
+			},
+			PageSelector: {
+				//
+			},
+			TableWrapper: {
+				margin: '0.5rem 0',
+			},
+			Toolbar: {
+				css: css`
+					.buttons {
+						flex-direction: row-reverse;
+					}
+				`,
+				tools: [
+					WastewaterFilter(handleClickForWastewater, {
+						background: theme.colors.white,
+						borderColor: theme.colors.grey_5,
+						fontColor: theme.colors.primary,
+						hoverBackground: theme.colors.secondary_light,
+						tooltipAlign: 'top left',
+						tooltipText: WASTEWATER_FILTER_TOOLTIP,
+					}),
+					ColumnsSelectButton,
+					DownloadButton,
+				] as RecursivePartial<ElementType>[],
+			},
+		},
+	},
+});
+
+const RepoTable = (): ReactElement => {
+	const theme = useTheme();
+	const {
+		NEXT_PUBLIC_ARRANGER_ENVIRONMENTAL_API,
+		NEXT_PUBLIC_ARRANGER_ENVIRONMENTAL_MANIFEST_COLUMNS,
+		NEXT_PUBLIC_ARRANGER_WASTEWATER_FILTERS,
+		NEXT_PUBLIC_ENABLE_DOWNLOADS,
+	} = getConfig();
+
+	const [showDownloadInfoModal, setShowDownloadInfoModal] = useState(false);
+	const [fileManifest, setFileManifest] = useState<SubmissionManifest[]>([]);
+	const [fileMetadata, setFileMetadata] = useState<Blob | null>(null);
+	const [selectedRows, setSelectedRows] = useState<string[]>([]);
+	const { sqon, setSQON } = useArrangerData({ callerName: 'Environmental-RepoTable' });
+	const { trackEvent } = useTrackingContext();
+	const [isLoadingManifest, setIsLoadingManifest] = useState(false);
+	const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
+	const [isWastewaterFilterActive, setIsWastewaterFilterActive] = useState(false);
+
+	const closeModal = () => {
+		setShowDownloadInfoModal(false);
+		setFileManifest([]);
+		setFileMetadata(null);
+	};
+
+	const today = new Date().toISOString();
+	const tsvExportColumns = NEXT_PUBLIC_ARRANGER_ENVIRONMENTAL_MANIFEST_COLUMNS.split(',')
+		.filter((field) => field.trim()) // ensure there's no empty field names
+		.map((fieldName) => fieldName.replace(/['"]+/g, '').trim())
+		.map((fieldName): Partial<CustomColumnMappingInterface> => {
+			return {
+				displayFormat: ({ displayFormat = '', displayType = '', type = '' } = {}) => {
+					return displayFormat || ([displayType, type].includes('date') && 'yyyy-MM-dd') || null;
+				},
+				displayName: ({ displayName = '', Header = '' } = {}) => {
+					switch (fieldName) {
+						case 'study_id':
+							return fieldName;
+
+						default:
+							return displayName || Header;
+					}
+				},
+				fieldName,
+			};
+		});
+
+	const handleBundleDownload: ExporterFunction = ({
+		sqon,
+		url,
+		selectedRows,
+		files,
+	}: {
+		sqon: SqonNode | null;
+		url: string;
+		selectedRows: string[];
+		files?: ExporterFileInterface[];
+	}) => {
+		const filteredSqonWithFiles = excludeRecordsWithoutFiles(sqon);
+
+		trackFileDownload(trackEvent, {
+			downloadType: 'metadata_and_files',
+			resultCount: selectedRows.length,
+			selectedRows: selectedRows.length,
+			activeFilterCount: countActiveFilters(sqon),
+		});
+
+		setShowDownloadInfoModal(true);
+		setIsLoadingManifest(true);
+		setIsLoadingMetadata(true);
+		setSelectedRows(selectedRows);
+
+		// Start fetching manifest
+		getManifestDataAsync(filteredSqonWithFiles)
+			.then(setFileManifest)
+			.catch((error) => {
+				console.error('Failed to fetch manifest:', error);
+			})
+			.finally(() => setIsLoadingManifest(false));
+
+		// Start fetching files metadata if files are present
+		if (files && files.length > 0) {
+			getMetadataBlobAsync({
+				sqon,
+				columns: files[0].columns,
+				documentType: 'analysis',
+				fileType: 'tsv',
+				maxRows: 0,
+				url,
+			})
+				.then(setFileMetadata)
+				.finally(() => setIsLoadingMetadata(false));
+		} else {
+			setIsLoadingMetadata(false);
+		}
+	};
+
+	const customExporters: CustomExporterInput = NEXT_PUBLIC_ENABLE_DOWNLOADS
+		? [
+				{
+					columns: tsvExportColumns,
+					fileName: `wastewater-metadata-export-${today}.tsv`,
+					function: createTrackedMetadataOnlyExporter(trackEvent),
+					label: 'Metadata only',
+					valueWhenEmpty: '',
+				},
+				{ function: handleBundleDownload, label: 'Metadata + File manifest' },
+			]
+		: [];
+
+	const wastewaterFilters = NEXT_PUBLIC_ARRANGER_WASTEWATER_FILTERS.split(',')
+		.filter((value) => value.trim()) // remove empties
+		.map((value) => value.trim()); // remove blankspace
+
+	const handleClickForWastewater = wastewaterClickHandler({
+		filters: wastewaterFilters,
+		setSQON,
+		sqon,
+		setIsWastewaterFilterActive,
+		isWastewaterFilterActive,
+	});
+
+	useEffect(() => {
+		if (isWastewaterFilterActive && sqon) {
+			const currentVal = currentFieldValue({
+				sqon,
+				dotFieldName: 'data.environmental_material',
+				op: 'in',
+			});
+			// If Wastewater filters were enabled, then SQON field 'environmental_material' is changed,
+			// this disables the 'active' flag, so that filter button works as expected.
+			if (currentVal.length !== wastewaterFilters.length) {
+				setIsWastewaterFilterActive(false);
+			}
+		}
+	}, [sqon, isWastewaterFilterActive, wastewaterFilters]);
+
+	useArrangerTheme(
+		getTableConfigs({
+			apiHost: NEXT_PUBLIC_ARRANGER_ENVIRONMENTAL_API,
+			customExporters,
+			handleClickForWastewater,
+			theme,
+		}),
+	);
+
+	return (
+		<article
+			css={css`
+				border-radius: 5px;
+				background-color: ${theme.colors.white};
+				padding: 8px;
+				margin: 10px 0;
+				${theme.shadow.default};
+			`}
+		>
+			<TableContextProvider>
+				<Toolbar />
+				<Table />
+				<Pagination />
+			</TableContextProvider>
+
+			{showDownloadInfoModal && (
+				<DownloadModal
+					onClose={closeModal}
+					fileManifest={fileManifest}
+					fileMetadata={fileMetadata}
+					selectedRows={selectedRows}
+					sqon={sqon}
+					isLoading={isLoadingManifest || isLoadingMetadata}
+					metadataFileName={`wastewater-metadata-export-${today}.tsv`}
+				/>
+			)}
+		</article>
+	);
+};
+
+export default RepoTable;
