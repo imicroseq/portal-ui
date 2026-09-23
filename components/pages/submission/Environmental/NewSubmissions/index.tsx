@@ -21,7 +21,7 @@
 
 import { css, useTheme } from '@emotion/react';
 import Router from 'next/router';
-import { ReactElement, useEffect, useReducer, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import urlJoin from 'url-join';
 
 import { ButtonElement as Button } from '#components/Button';
@@ -77,6 +77,19 @@ const NewSubmissions = (): ReactElement => {
 	const { awaitingResponse, submitData, downloadMetadataTemplateUrl, fetchPreviousSubmissions } =
 		useEnvironmentalData('NewSubmissions');
 	const fetchPreviousSubmissionsRef = useRef(fetchPreviousSubmissions);
+	const fetchLatestPreviousSubmission = useCallback(
+		async (signal?: AbortSignal) => {
+			const response = await fetchPreviousSubmissionsRef.current({
+				username: user?.email,
+				signal,
+				page: 1,
+				pageSize: 1,
+			});
+
+			return response.data?.[0];
+		},
+		[user?.email],
+	);
 
 	useEffect(() => {
 		fetchPreviousSubmissionsRef.current = fetchPreviousSubmissions;
@@ -90,23 +103,16 @@ const NewSubmissions = (): ReactElement => {
 
 		const controller = new AbortController();
 
-		fetchPreviousSubmissionsRef
-			.current({
-				username: user?.email,
-				signal: controller.signal,
-				page: 1,
-				pageSize: 1,
-			})
-			.then((previousSubmission) => {
-				if (controller.signal.aborted) {
-					return;
-				}
+		fetchLatestPreviousSubmission(controller.signal).then((previousSubmission) => {
+			if (controller.signal.aborted) {
+				return;
+			}
 
-				setPreviousSubmission(previousSubmission?.data?.[0]);
-			});
+			setPreviousSubmission(previousSubmission);
+		});
 
 		return () => controller.abort();
-	}, [token, user?.email, userHasEnvironmentalAccess]);
+	}, [fetchLatestPreviousSubmission, token, userHasEnvironmentalAccess]);
 
 	const isTarOnlyEligible = isTarOnlySubmissionEligible(previousSubmission);
 	const isCsvRequiredButMissingForSubmission = isCsvRequiredButMissing({
@@ -180,6 +186,14 @@ const NewSubmissions = (): ReactElement => {
 			switch (response.status) {
 				case CreateSubmissionStatus.PARTIAL_SUBMISSION:
 				case CreateSubmissionStatus.INVALID_SUBMISSION: {
+					if (response.submissionId !== previousSubmission?.id) {
+						try {
+							setPreviousSubmission(await fetchLatestPreviousSubmission());
+						} catch (error) {
+							console.error('Unable to refresh previous submission', error);
+						}
+					}
+
 					setUploadError(
 						response.batchErrors.map((error) => ({
 							...error,
