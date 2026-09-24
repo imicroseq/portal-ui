@@ -21,7 +21,7 @@
 
 import { Dispatch } from 'react';
 
-import type { SubmissionSummary } from '#global/hooks/useEnvironmentalData';
+import { SubmissionStatus, type SubmissionSummary } from '#global/hooks/useEnvironmentalData/types';
 
 import {
 	acceptedFileExtensions,
@@ -88,11 +88,15 @@ export const isSubmissionReadyForUpload = ({
 	oneCsv,
 	oneOrMoreTar,
 	isTarOnlySubmissionEligible,
+	previousSubmissionStatus,
 }: {
 	oneCsv: SubmissionFile[];
 	oneOrMoreTar: SubmissionFile[];
 	isTarOnlySubmissionEligible: boolean;
-}): boolean => oneCsv.length === 1 || (oneOrMoreTar.length > 0 && isTarOnlySubmissionEligible);
+	previousSubmissionStatus?: SubmissionStatus;
+}): boolean =>
+	previousSubmissionStatus !== SubmissionStatus.VALIDATING &&
+	(oneCsv.length === 1 || (oneOrMoreTar.length > 0 && isTarOnlySubmissionEligible));
 
 // Local readiness check used inside reducer before previous-submission context is available.
 export const isFileSelectionReadyForUpload = ({

@@ -138,6 +138,7 @@ const NewSubmissions = ({
 		oneCsv,
 		oneOrMoreTar,
 		isTarOnlySubmissionEligible: isTarOnlyEligible,
+		previousSubmissionStatus,
 	});
 	const hasBlockingIssues = hasSubmissionBlockingIssues({
 		uploadError,
@@ -365,6 +366,31 @@ const NewSubmissions = ({
 				validationDispatch={validationDispatch}
 				setUploadError={setUploadError}
 			/>
+
+			{previousSubmission?.status === SubmissionStatus.VALIDATING && (
+				<p
+					css={css`
+						${theme.typography.regular}
+						background-color: ${theme.colors.warning_dark};
+						border: 1px solid ${theme.colors.grey_3};
+						border-radius: 8px;
+						box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+						margin: 10px 10px;
+						padding: 10px;
+					`}
+				>
+					Submission <strong>#{previousSubmission.id}</strong> for study{' '}
+					<strong>{previousSubmission.organization}</strong> is currently being validated. You can{' '}
+					<StyledLink
+						href={getInternalLink({
+							path: urlJoin('submission', 'environmental', previousSubmission.id.toString()),
+						})}
+					>
+						review the submission details
+					</StyledLink>{' '}
+					while validation is in progress.
+				</p>
+			)}
 
 			{previousSubmission && isTarOnlyEligible && (
 				<p

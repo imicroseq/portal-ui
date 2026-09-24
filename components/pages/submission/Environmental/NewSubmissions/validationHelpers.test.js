@@ -117,6 +117,17 @@ describe('isSubmissionReadyForUpload', () => {
 			}),
 		).toBe(false);
 	});
+
+	it('is false when the previous submission is VALIDATING, even with a CSV file', () => {
+		expect(
+			isSubmissionReadyForUpload({
+				oneCsv: [csvFile],
+				oneOrMoreTar: [],
+				isTarOnlySubmissionEligible: false,
+				previousSubmissionStatus: 'VALIDATING',
+			}),
+		).toBe(false);
+	});
 });
 
 describe('isFileSelectionReadyForUpload', () => {
