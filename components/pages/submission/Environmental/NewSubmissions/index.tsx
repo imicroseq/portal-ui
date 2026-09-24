@@ -21,7 +21,7 @@
 
 import { css, useTheme } from '@emotion/react';
 import Router from 'next/router';
-import { ReactElement, useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { ReactElement, useEffect, useReducer, useRef, useState } from 'react';
 import urlJoin from 'url-join';
 
 import { ButtonElement as Button } from '#components/Button';
@@ -29,7 +29,7 @@ import ErrorNotification from '#components/ErrorNotification';
 import StyledLink from '#components/Link';
 import { LoaderWrapper } from '#components/Loader';
 import useAuthContext from '#global/hooks/useAuthContext';
-import useEnvironmentalData, { type SubmissionSummary } from '#global/hooks/useEnvironmentalData';
+import useEnvironmentalData, { SubmissionStatus, type SubmissionSummary } from '#global/hooks/useEnvironmentalData';
 import getInternalLink from '#global/utils/getInternalLink';
 import ConfirmSubmissionModal from '#components/pages/submission/ConfirmSubmissionModal';
 
@@ -63,8 +63,14 @@ const mapBatchErrorMessage = (rawMessage: string, organizationName: string) => {
 	return matchedRule ? matchedRule.getMessage(organizationName) : rawMessage;
 };
 
-const NewSubmissions = (): ReactElement => {
-	const { token, user, userHasEnvironmentalAccess, userIsEnvironmentalAdmin, userEnvironmentalWriteScopes } =
+const NewSubmissions = ({
+	previousSubmission: initialPreviousSubmission,
+	onSubmissionUpdated,
+}: {
+	previousSubmission?: SubmissionSummary;
+	onSubmissionUpdated: () => void;
+}): ReactElement => {
+	const { token, userHasEnvironmentalAccess, userIsEnvironmentalAdmin, userEnvironmentalWriteScopes } =
 		useAuthContext();
 	const theme = useTheme();
 	const [confirmSubmissionModalOpen, setConfirmSubmissionModalOpen] = useState(false);
@@ -72,47 +78,56 @@ const NewSubmissions = (): ReactElement => {
 	const [validationState, validationDispatch] = useReducer(validationReducer, validationParameters);
 	const { oneCsv, oneOrMoreTar } = validationState;
 	const thereAreFiles = hasFiles(validationState);
-	const [previousSubmission, setPreviousSubmission] = useState<SubmissionSummary | undefined>(undefined);
-
-	const { awaitingResponse, submitData, downloadMetadataTemplateUrl, fetchPreviousSubmissions } =
-		useEnvironmentalData('NewSubmissions');
-	const fetchPreviousSubmissionsRef = useRef(fetchPreviousSubmissions);
-	const fetchLatestPreviousSubmission = useCallback(
-		async (signal?: AbortSignal) => {
-			const response = await fetchPreviousSubmissionsRef.current({
-				username: user?.email,
-				signal,
-				page: 1,
-				pageSize: 1,
-			});
-
-			return response.data?.[0];
-		},
-		[user?.email],
+	const [previousSubmission, setPreviousSubmission] = useState<SubmissionSummary | undefined>(
+		initialPreviousSubmission,
 	);
 
-	useEffect(() => {
-		fetchPreviousSubmissionsRef.current = fetchPreviousSubmissions;
-	}, [fetchPreviousSubmissions]);
+	const { awaitingResponse, submitData, downloadMetadataTemplateUrl, fetchSubmissionSummaryById } =
+		useEnvironmentalData('NewSubmissions');
+	const fetchSubmissionSummaryByIdRef = useRef(fetchSubmissionSummaryById);
+	const submissionSummaryStreamRef = useRef<EventSource | null>(null);
 
 	useEffect(() => {
-		if (!token || !userHasEnvironmentalAccess) {
-			setPreviousSubmission(undefined);
+		fetchSubmissionSummaryByIdRef.current = fetchSubmissionSummaryById;
+	}, [fetchSubmissionSummaryById]);
+
+	useEffect(() => {
+		setPreviousSubmission(token && userHasEnvironmentalAccess ? initialPreviousSubmission : undefined);
+	}, [initialPreviousSubmission, token, userHasEnvironmentalAccess]);
+
+	const previousSubmissionId = previousSubmission?.id;
+	const previousSubmissionStatus = previousSubmission?.status;
+
+	useEffect(() => {
+		submissionSummaryStreamRef.current?.close();
+		submissionSummaryStreamRef.current = null;
+
+		if (
+			!token ||
+			!userHasEnvironmentalAccess ||
+			!previousSubmissionId ||
+			previousSubmissionStatus !== SubmissionStatus.VALIDATING
+		) {
 			return;
 		}
 
-		const controller = new AbortController();
+		submissionSummaryStreamRef.current = fetchSubmissionSummaryByIdRef.current(
+			previousSubmissionId.toString(),
+			(submission: SubmissionSummary) => {
+				setPreviousSubmission(submission);
 
-		fetchLatestPreviousSubmission(controller.signal).then((previousSubmission) => {
-			if (controller.signal.aborted) {
-				return;
-			}
+				if (submission.status !== SubmissionStatus.VALIDATING) {
+					submissionSummaryStreamRef.current?.close();
+					submissionSummaryStreamRef.current = null;
+				}
+			},
+		);
 
-			setPreviousSubmission(previousSubmission);
-		});
-
-		return () => controller.abort();
-	}, [fetchLatestPreviousSubmission, token, userHasEnvironmentalAccess]);
+		return () => {
+			submissionSummaryStreamRef.current?.close();
+			submissionSummaryStreamRef.current = null;
+		};
+	}, [initialPreviousSubmission, previousSubmissionId, previousSubmissionStatus, token, userHasEnvironmentalAccess]);
 
 	const isTarOnlyEligible = isTarOnlySubmissionEligible(previousSubmission);
 	const isCsvRequiredButMissingForSubmission = isCsvRequiredButMissing({
@@ -187,11 +202,7 @@ const NewSubmissions = (): ReactElement => {
 				case CreateSubmissionStatus.PARTIAL_SUBMISSION:
 				case CreateSubmissionStatus.INVALID_SUBMISSION: {
 					if (response.submissionId !== previousSubmission?.id) {
-						try {
-							setPreviousSubmission(await fetchLatestPreviousSubmission());
-						} catch (error) {
-							console.error('Unable to refresh previous submission', error);
-						}
+						onSubmissionUpdated();
 					}
 
 					setUploadError(
