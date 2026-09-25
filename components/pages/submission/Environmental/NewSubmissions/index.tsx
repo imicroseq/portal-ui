@@ -29,7 +29,7 @@ import ErrorNotification from '#components/ErrorNotification';
 import StyledLink from '#components/Link';
 import { LoaderWrapper } from '#components/Loader';
 import useAuthContext from '#global/hooks/useAuthContext';
-import useEnvironmentalData, { type SubmissionSummary } from '#global/hooks/useEnvironmentalData';
+import useEnvironmentalData, { SubmissionStatus, type SubmissionSummary } from '#global/hooks/useEnvironmentalData';
 import getInternalLink from '#global/utils/getInternalLink';
 import ConfirmSubmissionModal from '#components/pages/submission/ConfirmSubmissionModal';
 
@@ -63,8 +63,14 @@ const mapBatchErrorMessage = (rawMessage: string, organizationName: string) => {
 	return matchedRule ? matchedRule.getMessage(organizationName) : rawMessage;
 };
 
-const NewSubmissions = (): ReactElement => {
-	const { token, user, userHasEnvironmentalAccess, userIsEnvironmentalAdmin, userEnvironmentalWriteScopes } =
+const NewSubmissions = ({
+	previousSubmission: initialPreviousSubmission,
+	onSubmissionUpdated,
+}: {
+	previousSubmission?: SubmissionSummary;
+	onSubmissionUpdated: () => void;
+}): ReactElement => {
+	const { token, userHasEnvironmentalAccess, userIsEnvironmentalAdmin, userEnvironmentalWriteScopes } =
 		useAuthContext();
 	const theme = useTheme();
 	const [confirmSubmissionModalOpen, setConfirmSubmissionModalOpen] = useState(false);
@@ -72,41 +78,56 @@ const NewSubmissions = (): ReactElement => {
 	const [validationState, validationDispatch] = useReducer(validationReducer, validationParameters);
 	const { oneCsv, oneOrMoreTar } = validationState;
 	const thereAreFiles = hasFiles(validationState);
-	const [previousSubmission, setPreviousSubmission] = useState<SubmissionSummary | undefined>(undefined);
+	const [previousSubmission, setPreviousSubmission] = useState<SubmissionSummary | undefined>(
+		initialPreviousSubmission,
+	);
 
-	const { awaitingResponse, submitData, downloadMetadataTemplateUrl, fetchPreviousSubmissions } =
+	const { awaitingResponse, submitData, downloadMetadataTemplateUrl, fetchSubmissionSummaryById } =
 		useEnvironmentalData('NewSubmissions');
-	const fetchPreviousSubmissionsRef = useRef(fetchPreviousSubmissions);
+	const fetchSubmissionSummaryByIdRef = useRef(fetchSubmissionSummaryById);
+	const submissionSummaryStreamRef = useRef<EventSource | null>(null);
 
 	useEffect(() => {
-		fetchPreviousSubmissionsRef.current = fetchPreviousSubmissions;
-	}, [fetchPreviousSubmissions]);
+		fetchSubmissionSummaryByIdRef.current = fetchSubmissionSummaryById;
+	}, [fetchSubmissionSummaryById]);
 
 	useEffect(() => {
-		if (!token || !userHasEnvironmentalAccess) {
-			setPreviousSubmission(undefined);
+		setPreviousSubmission(token && userHasEnvironmentalAccess ? initialPreviousSubmission : undefined);
+	}, [initialPreviousSubmission, token, userHasEnvironmentalAccess]);
+
+	const previousSubmissionId = previousSubmission?.id;
+	const previousSubmissionStatus = previousSubmission?.status;
+
+	useEffect(() => {
+		submissionSummaryStreamRef.current?.close();
+		submissionSummaryStreamRef.current = null;
+
+		if (
+			!token ||
+			!userHasEnvironmentalAccess ||
+			!previousSubmissionId ||
+			previousSubmissionStatus !== SubmissionStatus.VALIDATING
+		) {
 			return;
 		}
 
-		const controller = new AbortController();
+		submissionSummaryStreamRef.current = fetchSubmissionSummaryByIdRef.current(
+			previousSubmissionId.toString(),
+			(submission: SubmissionSummary) => {
+				setPreviousSubmission(submission);
 
-		fetchPreviousSubmissionsRef
-			.current({
-				username: user?.email,
-				signal: controller.signal,
-				page: 1,
-				pageSize: 1,
-			})
-			.then((previousSubmission) => {
-				if (controller.signal.aborted) {
-					return;
+				if (submission.status !== SubmissionStatus.VALIDATING) {
+					submissionSummaryStreamRef.current?.close();
+					submissionSummaryStreamRef.current = null;
 				}
+			},
+		);
 
-				setPreviousSubmission(previousSubmission?.data?.[0]);
-			});
-
-		return () => controller.abort();
-	}, [token, user?.email, userHasEnvironmentalAccess]);
+		return () => {
+			submissionSummaryStreamRef.current?.close();
+			submissionSummaryStreamRef.current = null;
+		};
+	}, [initialPreviousSubmission, previousSubmissionId, previousSubmissionStatus, token, userHasEnvironmentalAccess]);
 
 	const isTarOnlyEligible = isTarOnlySubmissionEligible(previousSubmission);
 	const isCsvRequiredButMissingForSubmission = isCsvRequiredButMissing({
@@ -117,6 +138,7 @@ const NewSubmissions = (): ReactElement => {
 		oneCsv,
 		oneOrMoreTar,
 		isTarOnlySubmissionEligible: isTarOnlyEligible,
+		previousSubmissionStatus,
 	});
 	const hasBlockingIssues = hasSubmissionBlockingIssues({
 		uploadError,
@@ -180,6 +202,10 @@ const NewSubmissions = (): ReactElement => {
 			switch (response.status) {
 				case CreateSubmissionStatus.PARTIAL_SUBMISSION:
 				case CreateSubmissionStatus.INVALID_SUBMISSION: {
+					if (response.submissionId !== previousSubmission?.id) {
+						onSubmissionUpdated();
+					}
+
 					setUploadError(
 						response.batchErrors.map((error) => ({
 							...error,
@@ -340,6 +366,31 @@ const NewSubmissions = (): ReactElement => {
 				validationDispatch={validationDispatch}
 				setUploadError={setUploadError}
 			/>
+
+			{previousSubmission?.status === SubmissionStatus.VALIDATING && (
+				<p
+					css={css`
+						${theme.typography.regular}
+						background-color: ${theme.colors.warning_dark};
+						border: 1px solid ${theme.colors.grey_3};
+						border-radius: 8px;
+						box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+						margin: 10px 10px;
+						padding: 10px;
+					`}
+				>
+					Submission <strong>#{previousSubmission.id}</strong> for study{' '}
+					<strong>{previousSubmission.organization}</strong> is currently being validated. You can{' '}
+					<StyledLink
+						href={getInternalLink({
+							path: urlJoin('submission', 'environmental', previousSubmission.id.toString()),
+						})}
+					>
+						review the submission details
+					</StyledLink>{' '}
+					while validation is in progress.
+				</p>
+			)}
 
 			{previousSubmission && isTarOnlyEligible && (
 				<p

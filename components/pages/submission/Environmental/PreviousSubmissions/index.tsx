@@ -20,7 +20,7 @@
  */
 
 import { css, useTheme } from '@emotion/react';
-import { ReactElement, useEffect, useState } from 'react';
+import { ReactElement, useEffect, useRef, useState } from 'react';
 
 import GenericTable from '#components/GenericTable';
 import { LoaderWrapper } from '#components/Loader';
@@ -28,7 +28,7 @@ import NoScopes from '#components/NoScopes';
 import { PaginationToolBar } from '#components/Pagination';
 import { CoronaVirus } from '#components/theme/icons';
 import useAuthContext from '#global/hooks/useAuthContext';
-import useEnvironmentalData from '#global/hooks/useEnvironmentalData';
+import useEnvironmentalData, { type SubmissionSummary } from '#global/hooks/useEnvironmentalData';
 
 import columns from './columns';
 import { SubmissionPaginatedResponse } from './types';
@@ -36,13 +36,19 @@ import { SubmissionPaginatedResponse } from './types';
 const PreviousSubmissions = ({
 	pageSize = 20,
 	paginationEnabled = true,
+	refresh = 0,
+	onLatestSubmission,
 }: {
 	pageSize?: number;
 	paginationEnabled?: boolean;
+	refresh?: number;
+	onLatestSubmission?: (submission: SubmissionSummary | undefined) => void;
 }): ReactElement => {
 	const theme = useTheme();
 	const { token, userHasEnvironmentalAccess, user } = useAuthContext();
 	const { awaitingResponse, fetchPreviousSubmissions } = useEnvironmentalData('PreviousSubmissions');
+	const fetchPreviousSubmissionsRef = useRef(fetchPreviousSubmissions);
+	const onLatestSubmissionRef = useRef(onLatestSubmission);
 	const [previousSubmissions, setPreviousSubmissions] = useState<SubmissionPaginatedResponse>({
 		data: [],
 		first: true,
@@ -54,11 +60,20 @@ const PreviousSubmissions = ({
 	});
 
 	useEffect(() => {
+		fetchPreviousSubmissionsRef.current = fetchPreviousSubmissions;
+		onLatestSubmissionRef.current = onLatestSubmission;
+	}, [fetchPreviousSubmissions, onLatestSubmission]);
+
+	useEffect(() => {
 		const controller = new AbortController();
 		token &&
 			userHasEnvironmentalAccess &&
-			fetchPreviousSubmissions({ username: user?.email, signal: controller.signal, pageSize })
-				.then(setPreviousSubmissions)
+			fetchPreviousSubmissionsRef
+				.current({ username: user?.email, signal: controller.signal, pageSize })
+				.then((response) => {
+					setPreviousSubmissions(response);
+					onLatestSubmissionRef.current?.(response.data[0]);
+				})
 				.catch((error) => {
 					console.error('Error fetching previous submissions:', error);
 				});
@@ -67,7 +82,7 @@ const PreviousSubmissions = ({
 			// Abort the request when the component unmounts or when a dependency changes
 			controller.abort();
 		};
-	}, [token, userHasEnvironmentalAccess]);
+	}, [pageSize, refresh, token, user?.email, userHasEnvironmentalAccess]);
 
 	const goToFirstPage = () => {
 		if (previousSubmissions.first) return;

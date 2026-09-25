@@ -162,7 +162,7 @@ export const Modal = ({
 }: ModalProps) => {
 	const navBar = navBarRef.current;
 	const [width, setWidth] = useState(navBar ? `${navBar.clientWidth}px` : DEFAULT_WIDTH);
-	const [height, setHeight] = useState(`${window.innerHeight}px`);
+	const [height, setHeight] = useState(`${document.body.scrollHeight}px`);
 
 	const ref = modalPortalRef.current;
 	const mounted = useMounted();
@@ -175,7 +175,7 @@ export const Modal = ({
 		// but ideally we should make the UI responsive so this doesn't need to be done.
 		window.addEventListener('resize', () => {
 			setWidth(navBar ? `${navBar.clientWidth}px` : DEFAULT_WIDTH);
-			setHeight(`${window.innerHeight}px`);
+			setHeight(`${document.body.scrollHeight}px`);
 		});
 	}, []);
 
