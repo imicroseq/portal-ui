@@ -190,7 +190,8 @@ const Overview = ({
 				/>
 			) : (
 				missingUploadFiles &&
-				missingUploadFiles?.length > 0 && (
+				missingUploadFiles?.length > 0 &&
+				status === SubmissionStatus.VALID && (
 					<section
 						css={css`
 							padding: 20px;
