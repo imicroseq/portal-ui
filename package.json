@@ -1,6 +1,6 @@
 {
 	"name": "virusseq-dataportal-ui",
-	"version": "0.0.0-dev",
+	"version": "2.0.0",
 	"private": true,
 	"scripts": {
 		"build": "npm run nuke:nextTemp && next build",
