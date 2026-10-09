@@ -30,9 +30,10 @@ import useAuthContext from '#global/hooks/useAuthContext';
 import processStream from '#global/utils/processStream';
 
 import {
+	type CommitSubmissionResponse,
 	SubmissionStatus,
-	type CommitSubmissionResult,
 	type ErrorDetails,
+	type RecordValidationErrorDetails,
 	type SubmissionFile,
 	type SubmissionRecordsResponse,
 	type SubmissionSummary,
@@ -47,6 +48,13 @@ const useEnvironmentalData = (origin: string) => {
 	} = getConfig();
 	const { fetchWithAuth, user } = useAuthContext();
 	const [awaitingResponse, setAwaitingResponse] = useState(false);
+
+	const ERROR_REASON_MESSAGES: Record<string, string> = {
+		INVALID_BY_UNIQUE: 'This value must be unique',
+		INVALID_BY_UNIQUE_KEY: 'This violates the uniqueKey constraint',
+		INVALID_VALUE_TYPE: 'This value is not of the expected type',
+		UNRECOGNIZED_FIELD: 'This field is not recognized in the schema',
+	};
 
 	// For reference: https://submission-service.dev.virusseq-dataportal.ca/api-docs/
 	const handleRequest = async ({
@@ -100,7 +108,7 @@ const useEnvironmentalData = (origin: string) => {
 	const commitSubmission = async (
 		id: string,
 		{ signal }: { signal?: AbortSignal } = {},
-	): Promise<CommitSubmissionResult> => {
+	): Promise<CommitSubmissionResponse> => {
 		return handleRequest({
 			url: urlJoin(
 				NEXT_PUBLIC_ENVIRONMENTAL_SUBMISSION_API_URL,
@@ -232,17 +240,17 @@ const useEnvironmentalData = (origin: string) => {
 
 		return {
 			data: response.records,
-			first: response.pagination.currentPage === 1,
-			last: response.pagination.currentPage === response.pagination.totalPages,
-			page: response.pagination.currentPage,
-			size: response.records.length,
-			totalPages: response.pagination.totalPages,
-			totalRecords: response.pagination.totalRecords,
+			first: response.pagination?.currentPage === 1,
+			last: response.pagination?.currentPage === response.pagination?.totalPages,
+			page: response.pagination?.currentPage ?? 1,
+			size: response.records?.length ?? 0,
+			totalPages: response.pagination?.totalPages ?? 1,
+			totalRecords: response.pagination?.totalRecords ?? 0,
 		};
 	};
 
 	const resolveUploadStatus = (
-		errorDetails: string[],
+		errorDetails: RecordValidationErrorDetails[],
 		status: SubmissionStatus,
 		isUploadPending: boolean,
 		finalOnCommitted = false,
@@ -304,18 +312,15 @@ const useEnvironmentalData = (origin: string) => {
 				}
 
 				case 'UPDATES': {
-					const updateDetails = [
-						JSON.stringify({ old: item.value.old }),
-						JSON.stringify({ new: item.value.new }),
-					];
+					const updateDetails = [{ old: item.value.old, new: item.value.new }];
 
-					const status = resolveUploadStatus(errorDetails, submissionStatus, false);
+					const status = resolveUploadStatus(errorDetails, submissionStatus, false, true);
 
 					return {
 						submitterSampleId: '',
 						submissionId,
 						eventType: EventType.UPDATE,
-						details: status === UploadStatus.PROCESSING ? updateDetails : errorDetails,
+						details: errorDetails.length ? errorDetails : updateDetails,
 						organization,
 						originalFilePair: [''],
 						status,
@@ -350,7 +355,8 @@ const useEnvironmentalData = (origin: string) => {
 	const getActiveSubmission = async (
 		organization: string,
 		username?: string,
-	): Promise<Promise<SubmissionSummary | undefined>> => {
+		signal?: AbortSignal,
+	): Promise<SubmissionSummary | undefined> => {
 		const queryParams = new URLSearchParams({
 			organization,
 			pageSize: '1',
@@ -370,6 +376,7 @@ const useEnvironmentalData = (origin: string) => {
 				`?${queryParams.toString()}`,
 			),
 			method: 'GET',
+			signal,
 		});
 
 		if (responseActiveSubmission.records) {
@@ -453,16 +460,23 @@ const useEnvironmentalData = (origin: string) => {
 	 * Retrieves formatted error message for a specific index from a list of errors
 	 * @param errors
 	 * @param index
-	 * @returns An array of formatted error messages
+	 * @returns An array of structured error details
 	 */
-	const getErrorDetailsMessage = (errors: ErrorDetails[], index: number): string[] => {
+	const getErrorDetailsMessage = (errors: ErrorDetails[], index: number): RecordValidationErrorDetails[] => {
 		const errorDetails = errors.filter((error) => error.index === index);
 
 		const message = errorDetails.map((err) => {
-			const valuePart = err.fieldValue ? `- Value: '${err.fieldValue}'` : '';
-			const errorsPart = err.errors ? `- Details: '${err.errors[0].message.replace(/\.+$/, '')}'` : '';
+			let errorsPart = err.errors?.[0]?.message?.replace(/\.+$/, '') || '';
 
-			return `${err.reason} - Field: '${err.fieldName}' ${valuePart} ${errorsPart}`;
+			if (!errorsPart && err.reason in ERROR_REASON_MESSAGES) {
+				errorsPart = ERROR_REASON_MESSAGES[err.reason];
+			}
+
+			return {
+				field: err.fieldName,
+				issue: errorsPart || 'Unknown validation issue',
+				value: err.fieldValue,
+			};
 		});
 
 		return message;
@@ -470,7 +484,9 @@ const useEnvironmentalData = (origin: string) => {
 
 	/**
 	 * Submit files for processing as part of a Submission
-	 * If an Active Submission already exists it will be closed
+	 * If a CSV is included and an Active Submission already exists, it will be closed first.
+	 * If no CSV is included (sequencing files only), the Active Submission is left as-is so the
+	 * files are added to it instead of being replaced.
 	 * @param param0
 	 * @returns
 	 */
@@ -478,19 +494,22 @@ const useEnvironmentalData = (origin: string) => {
 		const organization = body.get('organization')?.toString();
 		if (!organization) throw new Error('Organization is required field');
 
-		const activeSubmission = await getActiveSubmission(organization, user?.email);
+		if (body.has('submissionFile')) {
+			// .csv file is included, so we need to check for an existing active Submission and close it first
+			const activeSubmission = await getActiveSubmission(organization, user?.email);
 
-		if (activeSubmission) {
-			// need to delete previous active Submission
-			await handleRequest({
-				url: urlJoin(
-					NEXT_PUBLIC_ENVIRONMENTAL_SUBMISSION_API_URL,
-					'submission',
-					activeSubmission.id.toString(),
-				),
-				method: 'DELETE',
-				body: body,
-			});
+			if (activeSubmission) {
+				// need to delete previous active Submission
+				await handleRequest({
+					url: urlJoin(
+						NEXT_PUBLIC_ENVIRONMENTAL_SUBMISSION_API_URL,
+						'submission',
+						activeSubmission.id.toString(),
+					),
+					method: 'DELETE',
+					body: body,
+				});
+			}
 		}
 
 		return handleRequest({

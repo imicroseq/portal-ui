@@ -21,7 +21,7 @@
 
 import { css, useTheme } from '@emotion/react';
 import Router from 'next/router';
-import { ReactElement, useEffect, useReducer, useState } from 'react';
+import { ReactElement, useEffect, useReducer, useRef, useState } from 'react';
 import urlJoin from 'url-join';
 
 import { ButtonElement as Button } from '#components/Button';
@@ -29,112 +29,166 @@ import ErrorNotification from '#components/ErrorNotification';
 import StyledLink from '#components/Link';
 import { LoaderWrapper } from '#components/Loader';
 import useAuthContext from '#global/hooks/useAuthContext';
-import useEnvironmentalData from '#global/hooks/useEnvironmentalData';
-import type { SubmissionManifest } from '#global/utils/fileManifest';
+import useEnvironmentalData, { SubmissionStatus, type SubmissionSummary } from '#global/hooks/useEnvironmentalData';
 import getInternalLink from '#global/utils/getInternalLink';
+import ConfirmSubmissionModal from '#components/pages/submission/ConfirmSubmissionModal';
 
 import DropZone from './DropZone';
 import ErrorMessage from './ErrorMessage';
 import FileRow from './FileRow';
-import FileUploadInstructionsModal from './FileUploadInstructionsModal';
+import { CreateSubmissionStatus, ValidationAction, type BatchError, type SubmissionFile } from './types';
 import {
-	acceptedFileExtensions,
-	CreateSubmissionStatus,
-	NoUploadError,
-	ValidationAction,
-	type BatchError,
-	type SubmissionFile,
-} from './types';
-import { getFileExtension, minFiles, validationParameters, validationReducer } from './validationHelpers';
+	buildFormData,
+	getConfirmSubmissionMessage,
+	isCsvRequiredButMissing,
+	getFileExtension,
+	isSubmissionReadyForUpload,
+	isTarOnlySubmissionEligible,
+	hasSubmissionBlockingIssues,
+	hasFiles,
+	shouldEnableSubmitButton,
+	validationParameters,
+	validationReducer,
+} from './validationHelpers';
 
-const noUploadError: NoUploadError = {
-	status: '',
+const SUBMISSION_ERROR_MESSAGE_RULES = [
+	{
+		pattern: /The studyId '%s' does not exist/,
+		getMessage: (organizationName: string) => `Study ID "${organizationName}" does not exist in the system.`,
+	},
+] as const;
+
+const mapBatchErrorMessage = (rawMessage: string, organizationName: string) => {
+	const matchedRule = SUBMISSION_ERROR_MESSAGE_RULES.find((rule) => rule.pattern.test(rawMessage));
+	return matchedRule ? matchedRule.getMessage(organizationName) : rawMessage;
 };
 
-// Constants for submit parms
-export const SubmitParams = {
-	ORGANIZATION: 'organization' as const,
-	ENTITY_NAME: 'entityName' as const,
-	SUBMISSION_FILE: 'submissionFile' as const,
-	SEQUENCING_METADATA: 'sequencingMetadata' as const,
-};
-
-// Constants for file metadata
-export const SequencingMetadataDefaults = {
-	FILE_ACCESS: 'open' as const,
-	FILE_TYPE: 'TAR' as const,
-};
-
-const buildFormData = (organizationName: string, selectedCsv: SubmissionFile, oneOrMoreTar: SubmissionFile[]) => {
-	const formData = new FormData();
-	formData.append(SubmitParams.ORGANIZATION, organizationName);
-	formData.append(SubmitParams.ENTITY_NAME, 'sample');
-	formData.append(SubmitParams.SUBMISSION_FILE, selectedCsv);
-
-	if (oneOrMoreTar.length > 0) {
-		formData.append(
-			SubmitParams.SEQUENCING_METADATA,
-			JSON.stringify(
-				oneOrMoreTar.map((tarFile: SubmissionFile) => ({
-					fileName: tarFile.name,
-					fileSize: tarFile.size,
-					fileMd5sum: tarFile.md5,
-					fileAccess: SequencingMetadataDefaults.FILE_ACCESS,
-					fileType: SequencingMetadataDefaults.FILE_TYPE,
-				})),
-			),
-		);
-	}
-	return formData;
-};
-
-const NewSubmissions = (): ReactElement => {
+const NewSubmissions = ({
+	previousSubmission: initialPreviousSubmission,
+	onSubmissionUpdated,
+}: {
+	previousSubmission?: SubmissionSummary;
+	onSubmissionUpdated: () => void;
+}): ReactElement => {
 	const { token, userHasEnvironmentalAccess, userIsEnvironmentalAdmin, userEnvironmentalWriteScopes } =
 		useAuthContext();
 	const theme = useTheme();
-	const [thereAreFiles, setThereAreFiles] = useState(false);
-	const [filesSubmissionInstructions, setFilesSubmissionInstructions] = useState<SubmissionManifest[]>([]);
-	const [submissionId, setSubmissionId] = useState<string>('');
-	const [uploadError, setUploadError] = useState<NoUploadError>(noUploadError);
+	const [confirmSubmissionModalOpen, setConfirmSubmissionModalOpen] = useState(false);
+	const [uploadError, setUploadError] = useState<BatchError[]>([]);
 	const [validationState, validationDispatch] = useReducer(validationReducer, validationParameters);
-	const { oneCsv, oneOrMoreTar, readyToUpload } = validationState;
-	const [openGuideModal, setOpenGuideModal] = useState(false);
+	const { oneCsv, oneOrMoreTar } = validationState;
+	const thereAreFiles = hasFiles(validationState);
+	const [previousSubmission, setPreviousSubmission] = useState<SubmissionSummary | undefined>(
+		initialPreviousSubmission,
+	);
 
-	const { awaitingResponse, submitData, downloadMetadataTemplateUrl } = useEnvironmentalData('NewSubmissions');
+	const { awaitingResponse, submitData, downloadMetadataTemplateUrl, fetchSubmissionSummaryById } =
+		useEnvironmentalData('NewSubmissions');
+	const fetchSubmissionSummaryByIdRef = useRef(fetchSubmissionSummaryById);
+	const submissionSummaryStreamRef = useRef<EventSource | null>(null);
 
-	const setSubmitError = (
-		description: string,
-		status = 'Your submission has errors and cannot be processed.',
-		batchErrors?: BatchError[],
-	) => {
-		setUploadError({
-			description,
-			status,
-			batchErrors,
-		});
-	};
+	useEffect(() => {
+		fetchSubmissionSummaryByIdRef.current = fetchSubmissionSummaryById;
+	}, [fetchSubmissionSummaryById]);
+
+	useEffect(() => {
+		setPreviousSubmission(token && userHasEnvironmentalAccess ? initialPreviousSubmission : undefined);
+	}, [initialPreviousSubmission, token, userHasEnvironmentalAccess]);
+
+	const previousSubmissionId = previousSubmission?.id;
+	const previousSubmissionStatus = previousSubmission?.status;
+
+	useEffect(() => {
+		submissionSummaryStreamRef.current?.close();
+		submissionSummaryStreamRef.current = null;
+
+		if (
+			!token ||
+			!userHasEnvironmentalAccess ||
+			!previousSubmissionId ||
+			previousSubmissionStatus !== SubmissionStatus.VALIDATING
+		) {
+			return;
+		}
+
+		submissionSummaryStreamRef.current = fetchSubmissionSummaryByIdRef.current(
+			previousSubmissionId.toString(),
+			(submission: SubmissionSummary) => {
+				setPreviousSubmission(submission);
+
+				if (submission.status !== SubmissionStatus.VALIDATING) {
+					submissionSummaryStreamRef.current?.close();
+					submissionSummaryStreamRef.current = null;
+				}
+			},
+		);
+
+		return () => {
+			submissionSummaryStreamRef.current?.close();
+			submissionSummaryStreamRef.current = null;
+		};
+	}, [initialPreviousSubmission, previousSubmissionId, previousSubmissionStatus, token, userHasEnvironmentalAccess]);
+
+	const isTarOnlyEligible = isTarOnlySubmissionEligible(previousSubmission);
+	const isCsvRequiredButMissingForSubmission = isCsvRequiredButMissing({
+		oneCsv,
+		isTarOnlySubmissionEligible: isTarOnlyEligible,
+	});
+	const isSubmissionReady = isSubmissionReadyForUpload({
+		oneCsv,
+		oneOrMoreTar,
+		isTarOnlySubmissionEligible: isTarOnlyEligible,
+		previousSubmissionStatus,
+	});
+	const hasBlockingIssues = hasSubmissionBlockingIssues({
+		uploadError,
+		isCsvRequiredButMissing: isCsvRequiredButMissingForSubmission,
+	});
+	const enableSubmitButton = shouldEnableSubmitButton({
+		isSubmissionReadyForUpload: isSubmissionReady,
+		hasSubmissionBlockingIssues: hasBlockingIssues,
+	});
 
 	const handleSubmit = async () => {
 		if (!thereAreFiles || !token || !userHasEnvironmentalAccess) {
-			const errorMessage = `no ${token ? 'token' : userHasEnvironmentalAccess ? 'scopes' : 'files'} to submit`;
-			setSubmitError(errorMessage);
+			const errorMessage = `No ${token ? 'token' : userHasEnvironmentalAccess ? 'scopes' : 'files'} to submit`;
+			setConfirmSubmissionModalOpen(false);
+			setUploadError([{ batchName: '', message: errorMessage, type: 'FILE_READ_ERROR' }]);
 			return;
 		}
 
-		// Validate uploaded file
+		// Extract organization name from the CSV file, or from the previous submission
+		// when this is a CSV-less (sequencing-files-only) submission
 		const selectedCsv = oneCsv[0];
-		if (!selectedCsv || getFileExtension(selectedCsv.name) !== acceptedFileExtensions.CSV) {
-			setSubmitError(`Please upload a .csv file.`);
+		let organizationName: string;
+
+		if (selectedCsv) {
+			organizationName = selectedCsv.name.split('.')[0].toUpperCase();
+		} else if (isTarOnlyEligible && previousSubmission) {
+			organizationName = previousSubmission.organization || '';
+		} else {
+			setConfirmSubmissionModalOpen(false);
+			setUploadError([
+				{
+					batchName: '',
+					message: 'Unable to determine organization name from CSV file or previous submission',
+					type: 'INCORRECT_SECTION',
+				},
+			]);
 			return;
 		}
-
-		// Extract organization name from the CSV file
-		const organizationName = selectedCsv.name.split('.')[0].toUpperCase();
 
 		const hasWriteAccessToOrganization =
 			userIsEnvironmentalAdmin || userEnvironmentalWriteScopes.includes(organizationName);
 		if (!hasWriteAccessToOrganization) {
-			setSubmitError(`User does not have permission to upload data for organization ${organizationName}`);
+			setConfirmSubmissionModalOpen(false);
+			setUploadError([
+				{
+					batchName: '',
+					message: `User does not have permission to upload data for organization "${organizationName}"`,
+					type: 'FILE_READ_ERROR',
+				},
+			]);
 			return;
 		}
 
@@ -143,33 +197,30 @@ const NewSubmissions = (): ReactElement => {
 		// Submit data
 		try {
 			const response = await submitData({ body: formData });
+			setConfirmSubmissionModalOpen(false);
 
 			switch (response.status) {
 				case CreateSubmissionStatus.PARTIAL_SUBMISSION:
 				case CreateSubmissionStatus.INVALID_SUBMISSION: {
-					console.error(`invalid submission: ${response}`);
-					setSubmitError(
-						response.description || response.batchErrors.map((e) => e.message).join(','),
-						undefined,
-						response.batchErrors,
+					if (response.submissionId !== previousSubmission?.id) {
+						onSubmissionUpdated();
+					}
+
+					setUploadError(
+						response.batchErrors.map((error) => ({
+							...error,
+							message: mapBatchErrorMessage(error.message, organizationName),
+						})),
 					);
 					break;
 				}
 
 				case CreateSubmissionStatus.PROCESSING: {
-					if (response.submissionId && oneOrMoreTar.length === 0) {
+					if (response.submissionId) {
 						Router.push(
 							getInternalLink({
 								path: urlJoin('submission', 'environmental', response.submissionId.toString()),
 							}),
-						);
-					} else if (response.submissionId && oneOrMoreTar.length > 0) {
-						setFilesSubmissionInstructions(response.submissionManifest);
-						setSubmissionId(response.submissionId.toString());
-						setOpenGuideModal(
-							response.submissionManifest &&
-								response.submissionManifest.length > 0 &&
-								response.submissionId != null,
 						);
 					} else {
 						console.log('Unhandled response:', response);
@@ -179,30 +230,38 @@ const NewSubmissions = (): ReactElement => {
 
 				default: {
 					console.error(response);
-					setSubmitError('Your upload request has failed. Please try again later.', 'Internal Server Error');
+					setUploadError([
+						{
+							batchName: '',
+							message: 'Your upload request has failed. Please try again later.',
+							type: 'FILE_READ_ERROR',
+						},
+					]);
 					break;
 				}
 			}
 		} catch (error) {
+			setConfirmSubmissionModalOpen(false);
 			console.error(error);
-			setSubmitError('An unexpected error occurred. Please try again later.');
+			setUploadError([
+				{
+					batchName: '',
+					message: 'An unexpected error occurred. Please try again later.',
+					type: 'FILE_READ_ERROR',
+				},
+			]);
 		}
 	};
 
-	useEffect(() => {
-		setUploadError(noUploadError);
-		setThereAreFiles(minFiles(validationState));
-	}, [validationState]);
-
 	const handleClearAll = () => {
-		setUploadError(noUploadError);
+		setUploadError([]);
 		validationDispatch({ type: 'clear all' });
 	};
 
 	const handleRemoveThis =
 		({ name }: SubmissionFile) =>
 		() => {
-			setUploadError(noUploadError);
+			setUploadError([]);
 			validationDispatch({
 				type: `remove ${getFileExtension(name)}`,
 				file: name,
@@ -305,12 +364,69 @@ const NewSubmissions = (): ReactElement => {
 				disabled={!userHasEnvironmentalAccess}
 				validationState={validationState}
 				validationDispatch={validationDispatch}
+				setUploadError={setUploadError}
 			/>
 
-			{uploadError.description && (
+			{previousSubmission?.status === SubmissionStatus.VALIDATING && (
+				<p
+					css={css`
+						${theme.typography.regular}
+						background-color: ${theme.colors.warning_dark};
+						border: 1px solid ${theme.colors.grey_3};
+						border-radius: 8px;
+						box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+						margin: 10px 10px;
+						padding: 10px;
+					`}
+				>
+					Submission <strong>#{previousSubmission.id}</strong> for study{' '}
+					<strong>{previousSubmission.organization}</strong> is currently being validated. You can{' '}
+					<StyledLink
+						href={getInternalLink({
+							path: urlJoin('submission', 'environmental', previousSubmission.id.toString()),
+						})}
+					>
+						review the submission details
+					</StyledLink>{' '}
+					while validation is in progress.
+				</p>
+			)}
+
+			{previousSubmission && isTarOnlyEligible && (
+				<p
+					css={css`
+						${theme.typography.regular}
+						background-color: ${theme.colors.warning_dark};
+						border: 1px solid ${theme.colors.grey_3};
+						border-radius: 8px;
+						box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+						margin: 10px 10px;
+						padding: 10px;
+					`}
+				>
+					You have a pending valid submission <strong>#{previousSubmission.id}</strong> for study{' '}
+					<strong>{previousSubmission.organization}</strong>. You have three options: <br />
+					1. <strong>Add sequencing files</strong> - Upload only <span className="code">.tar.xz</span> files
+					in the area above to add sequence file(s) to this existing submission. <br />
+					2. <strong>Review your submission</strong> - Go to the{' '}
+					<StyledLink
+						href={getInternalLink({
+							path: urlJoin('submission', 'environmental', previousSubmission.id.toString()),
+						})}
+					>
+						<strong>submission #{previousSubmission.id}</strong>
+					</StyledLink>{' '}
+					details page to review or continue this submission.
+					<br />
+					3. <strong>Start over</strong> - Cancel the pending submission and start a new one by uploading a{' '}
+					<span className="code">.csv</span> file.
+				</p>
+			)}
+
+			{uploadError.length > 0 && (
 				<ErrorNotification
 					size="md"
-					title={uploadError.status}
+					title="Submission could not be processed"
 					styles={`
             align-items: center;
             box-sizing: border-box;
@@ -321,36 +437,32 @@ const NewSubmissions = (): ReactElement => {
             width: 100%;
           `}
 				>
-					{uploadError.description}
+					<ul
+						css={css`
+							margin: 10px 0 0;
+							padding-left: 0;
 
-					{uploadError?.batchErrors && (
-						<ul
-							css={css`
-								margin: 10px 0 0;
-								padding-left: 0;
+							p {
+								margin-bottom: 0.5rem;
+							}
 
-								p {
-									margin-bottom: 0.5rem;
-								}
+							li:first-of-type p {
+								margin-top: 0;
+							}
 
-								li:first-of-type p {
-									margin-top: 0;
-								}
-
-								span {
-									display: block;
-									font-size: 13px;
-								}
-							`}
-						>
-							{uploadError?.batchErrors.map(({ message, type }) => (
-								<ErrorMessage
-									type={type}
-									values={message}
-								/>
-							))}
-						</ul>
-					)}
+							span {
+								display: block;
+								font-size: 13px;
+							}
+						`}
+					>
+						{uploadError.map(({ message }, index) => (
+							<ErrorMessage
+								key={`upload-error-${index}`}
+								values={message}
+							/>
+						))}
+					</ul>
 				</ErrorNotification>
 			)}
 
@@ -468,15 +580,12 @@ const NewSubmissions = (): ReactElement => {
 										height: 34px;
 										padding: 0 15px;
 									`}
-									disabled={
-										!(readyToUpload && !uploadError.description) ||
-										filesSubmissionInstructions.length > 0
-									}
-									onClick={handleSubmit}
+									disabled={!enableSubmitButton}
+									onClick={() => setConfirmSubmissionModalOpen(true)}
 								>
 									Submit Data
 								</Button>
-								{thereAreFiles && validationState.oneCsv.length !== 1 && (
+								{thereAreFiles && isCsvRequiredButMissingForSubmission && (
 									<p
 										css={css`
 											color: ${theme.colors.error_dark};
@@ -491,22 +600,13 @@ const NewSubmissions = (): ReactElement => {
 						</tr>
 					</tfoot>
 				</table>
-				{openGuideModal && (
-					<FileUploadInstructionsModal
-						submissionManifest={filesSubmissionInstructions}
-						submissionId={submissionId}
-						onClose={() => {
-							setOpenGuideModal(false);
-							setFilesSubmissionInstructions([]);
-							setSubmissionId('');
-							validationDispatch({ type: 'clear all' });
-							Router.push(
-								getInternalLink({
-									path: urlJoin('submission', 'environmental', submissionId),
-								}),
-							);
-						}}
-					/>
+				{confirmSubmissionModalOpen && (
+					<ConfirmSubmissionModal
+						onClose={() => setConfirmSubmissionModalOpen(false)}
+						onSubmit={handleSubmit}
+					>
+						{getConfirmSubmissionMessage(validationState, previousSubmission)}
+					</ConfirmSubmissionModal>
 				)}
 			</LoaderWrapper>
 		</article>

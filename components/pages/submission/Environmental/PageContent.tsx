@@ -21,10 +21,11 @@
 
 import { css, useTheme } from '@emotion/react';
 import { useRouter } from 'next/router';
-import { ReactElement } from 'react';
+import { ReactElement, useState } from 'react';
 
 import Navigator from '#components//Navigator';
 import useAuthContext from '#global/hooks/useAuthContext';
+import type { SubmissionSummary } from '#global/hooks/useEnvironmentalData';
 
 import SubmissionDetails from './Details';
 import NewSubmissions from './NewSubmissions';
@@ -36,6 +37,8 @@ const PageContent = (): ReactElement => {
 	} = useRouter();
 	const theme = useTheme();
 	const { userHasClinicalAccess, userHasEnvironmentalAccess } = useAuthContext();
+	const [previousSubmissionsRefresh, setPreviousSubmissionsRefresh] = useState(0);
+	const [latestSubmission, setLatestSubmission] = useState<SubmissionSummary>();
 
 	// Submission ID
 	const submissionId = Array.isArray(slug) ? slug[0] : slug;
@@ -77,8 +80,15 @@ const PageContent = (): ReactElement => {
 							}
 						`}
 					>
-						<PreviousSubmissions pageSize={25} />
-						<NewSubmissions />
+						<PreviousSubmissions
+							pageSize={25}
+							refresh={previousSubmissionsRefresh}
+							onLatestSubmission={setLatestSubmission}
+						/>
+						<NewSubmissions
+							previousSubmission={latestSubmission}
+							onSubmissionUpdated={() => setPreviousSubmissionsRefresh((refresh) => refresh + 1)}
+						/>
 					</section>
 				</>
 			)}

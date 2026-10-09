@@ -31,6 +31,7 @@ import { LoaderWrapper } from '#components/Loader';
 import useAuthContext from '#global/hooks/useAuthContext';
 import useMuseData from '#global/hooks/useMuseData';
 import getInternalLink from '#global/utils/getInternalLink';
+import ConfirmSubmissionModal from '#components/pages/submission/ConfirmSubmissionModal';
 
 import DropZone from './DropZone';
 import ErrorMessage from './ErrorMessage';
@@ -44,6 +45,7 @@ const NewSubmissions = (): ReactElement => {
 	const { token, userHasClinicalAccess } = useAuthContext();
 	const theme = useTheme();
 	const [thereAreFiles, setThereAreFiles] = useState(false);
+	const [confirmSubmissionModalOpen, setConfirmSubmissionModalOpen] = useState(false);
 	const [uploadError, setUploadError] = useState(noUploadError);
 	const [validationState, validationDispatch] = useReducer(validationReducer, validationParameters);
 	const { oneTSV, oneOrMoreFasta, readyToUpload } = validationState;
@@ -51,52 +53,65 @@ const NewSubmissions = (): ReactElement => {
 	const { awaitingResponse, fetchMuseData } = useMuseData('NewSubmissions');
 
 	const handleSubmit = () => {
-		if (thereAreFiles && token && userHasClinicalAccess) {
-			const formData = new FormData();
-
-			// if many TSV are available, submit only the first one along with all fastas
-			const selectedTSV = oneTSV.slice(-1)[0];
-			formData.append('files', selectedTSV, selectedTSV.name);
-			oneOrMoreFasta.forEach((fasta) => formData.append('files', fasta, fasta.name));
-
-			return fetchMuseData('submissions', { body: formData, method: 'POST' }).then((response) => {
-				switch (response.status) {
-					case 'BAD_REQUEST': {
-						setUploadError({
-							...response,
-							status: 'Your submission has errors and cannot be processed.',
-						});
-						return Promise.resolve();
-					}
-
-					case 'INTERNAL_SERVER_ERROR': {
-						console.error(response);
-						setUploadError({
-							status: 'Internal server error',
-							message: 'Your upload request has failed. Please try again later.',
-						});
-						return Promise.resolve();
-					}
-
-					default: {
-						response.submissionId
-							? Router.push(
-									getInternalLink({
-										path: urlJoin('submission', 'clinical', response.submissionId),
-									}),
-								)
-							: console.log('Unhandled response:', response);
-						return Promise.resolve();
-					}
-				}
+		if (!thereAreFiles || !token || !userHasClinicalAccess) {
+			setConfirmSubmissionModalOpen(false);
+			const errorMessage = `No ${token ? 'token' : userHasClinicalAccess ? 'scopes' : 'files'} to submit`;
+			setUploadError({
+				status: 'Submission could not be processed',
+				message: errorMessage,
 			});
+			return Promise.resolve();
 		}
 
-		console.error(`no ${token ? 'token' : userHasClinicalAccess ? 'scopes' : 'files'} to submit`);
+		const formData = new FormData();
+
+		// if many TSV are available, submit only the first one along with all fastas
+		const selectedTSV = oneTSV.slice(-1)[0];
+		formData.append('files', selectedTSV, selectedTSV.name);
+		oneOrMoreFasta.forEach((fasta) => formData.append('files', fasta, fasta.name));
+
+		return fetchMuseData('submissions', { body: formData, method: 'POST' }).then((response) => {
+			setConfirmSubmissionModalOpen(false);
+			switch (response.status) {
+				case 'BAD_REQUEST': {
+					setUploadError({
+						...response,
+						status: 'Your submission has errors and cannot be processed.',
+					});
+					return Promise.resolve();
+				}
+
+				case 'INTERNAL_SERVER_ERROR': {
+					console.error(response);
+					setUploadError({
+						status: 'Internal server error',
+						message: 'Your upload request has failed. Please try again later.',
+					});
+					return Promise.resolve();
+				}
+
+				default: {
+					response.submissionId
+						? Router.push(
+								getInternalLink({
+									path: urlJoin('submission', 'clinical', response.submissionId),
+								}),
+							)
+						: console.log('Unhandled response:', response);
+					return Promise.resolve();
+				}
+			}
+		}).catch((error) => {
+			console.error(error);
+			setUploadError({
+				status: 'Submission could not be processed',
+				message: 'An unexpected error occurred. Please try again later.',
+			});
+			setConfirmSubmissionModalOpen(false);
+		});
 	};
 
 	useEffect(() => {
-		setUploadError(noUploadError);
 		setThereAreFiles(validationState.oneTSV.length > 0 || validationState.oneOrMoreFasta.length > 0);
 	}, [validationState]);
 
@@ -201,9 +216,10 @@ const NewSubmissions = (): ReactElement => {
 				disabled={!userHasClinicalAccess}
 				validationState={validationState}
 				validationDispatch={validationDispatch}
+				setUploadError={setUploadError}
 			/>
 
-			{uploadError.message && (
+			{uploadError.status && (
 				<ErrorNotification
 					size="md"
 					title={uploadError.status}
@@ -368,7 +384,7 @@ const NewSubmissions = (): ReactElement => {
 										padding: 0 15px;
 									`}
 									disabled={!(readyToUpload && !uploadError.message)}
-									onClick={handleSubmit}
+									onClick={() => setConfirmSubmissionModalOpen(true)}
 								>
 									Submit Data
 								</Button>
@@ -387,6 +403,12 @@ const NewSubmissions = (): ReactElement => {
 						</tr>
 					</tfoot>
 				</table>
+				{confirmSubmissionModalOpen && (
+					<ConfirmSubmissionModal
+						onClose={() => setConfirmSubmissionModalOpen(false)}
+						onSubmit={handleSubmit}
+					/>
+				)}
 			</LoaderWrapper>
 		</article>
 	);

@@ -30,10 +30,21 @@ export type SubmissionOverview = {
 	status: SubmissionStatus;
 };
 
+export type RecordValidationErrorDetails = {
+	field: string;
+	issue: string;
+	value?: string;
+};
+
+export type UpdateDetails = {
+	old: DataRecord;
+	new: DataRecord;
+};
+
 export type UploadData = {
 	systemId: string | null;
 	eventType: EventType;
-	details: string[];
+	details: RecordValidationErrorDetails[] | UpdateDetails[];
 	originalFilePair: string[];
 	status: UploadStatus;
 	organization: string;
@@ -113,6 +124,13 @@ export type CommitSubmissionResult = {
 	dictionary: object;
 	processedEntities: string[];
 };
+
+export type CommitSubmissionErrorResult = {
+	error: string;
+	message: string;
+};
+
+export type CommitSubmissionResponse = CommitSubmissionResult | CommitSubmissionErrorResult;
 
 export type SubmissionFile = {
 	fileName: string;

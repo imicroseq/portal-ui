@@ -20,14 +20,20 @@
  */
 
 import { css, useTheme } from '@emotion/react';
-import { Dispatch, ReactElement, useCallback } from 'react';
+import { Dispatch, ReactElement, useCallback, type SetStateAction } from 'react';
 import { useDropzone } from 'react-dropzone';
 
 import { ButtonElement as Button } from '#components/Button';
 import DragAndDrop from '#components/theme/icons/DragAndDrop';
 
 import { computeMd5 } from './fileUtils';
-import { acceptedFileExtensions, SubmissionFile, ValidationAction, ValidationParameters } from './types';
+import {
+	acceptedFileExtensions,
+	type BatchError,
+	type SubmissionFile,
+	type ValidationAction,
+	type ValidationParameters,
+} from './types';
 import { getFileExtension, validator } from './validationHelpers';
 
 const acceptedExtensionsString = Object.values(acceptedFileExtensions)
@@ -38,25 +44,31 @@ const DropZone = ({
 	disabled,
 	validationState,
 	validationDispatch,
+	setUploadError,
 }: {
 	disabled: boolean;
 	validationState: ValidationParameters;
 	validationDispatch: Dispatch<ValidationAction>;
+	setUploadError: Dispatch<SetStateAction<BatchError[]>>;
 }): ReactElement => {
 	const theme = useTheme();
 
-	const {
-		getRootProps,
-		getInputProps,
-		// isDragAccept,
-		isDragActive,
-		// isFileTooLarge,
-	} = useDropzone({
+	const { getRootProps, getInputProps, isDragActive } = useDropzone({
 		accept: acceptedExtensionsString,
+		onDropRejected(fileRejections, event) {
+			setUploadError(
+				fileRejections.map(({ file }) => ({
+					type: 'INVALID_FILE_EXTENSION',
+					message: `This file couldn't be uploaded because its file type is not supported: ${file.name}`,
+					batchName: file.name,
+				})),
+			);
+		},
 		disabled,
 		onDrop: useCallback(
 			(acceptedFiles: SubmissionFile[]) => {
 				// Compute md5 for tar.xz files and validate each files
+				setUploadError([]);
 				Promise.all(
 					acceptedFiles.map((file) =>
 						getFileExtension(file.name) === acceptedFileExtensions.TAR_XZ

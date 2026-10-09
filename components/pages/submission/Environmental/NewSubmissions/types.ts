@@ -20,6 +20,7 @@
  */
 
 import type { SubmissionManifest } from '#/global/utils/fileManifest';
+import type { SubmissionSummary } from '#/global/hooks/useEnvironmentalData';
 
 /**
  * Enum used in the Reponse on Create new Submissions
@@ -51,19 +52,9 @@ export type BatchError = {
 	type: BatchErrorType;
 };
 
-/**
- * Error Response from the submission service
- */
-export type NoUploadError = {
-	batchErrors?: BatchError[];
-	description?: string;
-	status: string;
-};
-
 export type CreateSubmissionResult = {
 	submissionId?: number;
 	status: CreateSubmissionStatus;
-	description: string;
 	submissionManifest: SubmissionManifest[];
 	inProcessEntities: string[];
 	batchErrors: BatchError[];
@@ -75,8 +66,7 @@ export const acceptedFileExtensions = {
 	XZ: 'xz',
 } as const;
 
-export type AcceptedFileExtension =
-	(typeof acceptedFileExtensions)[keyof typeof acceptedFileExtensions];
+export type AcceptedFileExtension = (typeof acceptedFileExtensions)[keyof typeof acceptedFileExtensions];
 
 export interface SubmissionFile extends File {
 	md5?: string;
@@ -99,4 +89,5 @@ export type ValidationParameters = {
 	oneCsv: SubmissionFile[];
 	oneOrMoreTar: SubmissionFile[];
 	readyToUpload: boolean;
+	previousSubmission?: SubmissionSummary;
 };
